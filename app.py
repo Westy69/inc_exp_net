@@ -1,5 +1,4 @@
 import io
-import json
 import pandas as pd
 import streamlit as st
 
@@ -27,8 +26,7 @@ st.set_page_config(
 st.title("💰 Dynamic Income & Expense Analyzer")
 st.markdown(
     "Dynamically manage income streams, categorized expenses, and debt/loan"
-    " amortizations with auto-calculated payments. Save and load your data"
-    " seamlessly using JSON configuration files."
+    " amortizations with auto-calculated payments."
 )
 
 # -------------------------------------------------------------------------
@@ -36,52 +34,30 @@ st.markdown(
 # -------------------------------------------------------------------------
 category_help = {
     "House Hold Expenses": (
-        "Includes property rates, ongoing home maintenance, repairs, body"
-        " corporate fees, etc."
+        "Includes property rates, ongoing home"
+        " maintenance, repairs, body corporate fees, etc."
     ),
     "Vehicle Expenses": (
-        "Vehicle insurances, fuel, Warrant of fitness (WOF),"
-        " Registration/Licencing, Tires, and scheduled"
+        "Vehicle insurances, fuel, Warrant of fitness (WOF), Registration/Licencing, Tires, and scheduled"
         " servicing/maintenance, Unplanned Repairs."
     ),
     "Living Expenses": (
-        "Includes supermarket groceries, power/Electricity, gas, internet,"
-        " Mobile Phone, & recurring household subscriptions (Netflix, Spotify,"
-        " etc.)."
+        "Includes supermarket groceries, power/Electricity, gas, internet, Mobile"
+        "Phone, & recurring household subscriptions (Netflix, Spotify, etc.)."
     ),
-    "Insurances": "Life, Loss of Income, Contents, House Cover etc.",
+    "Insurances": (
+        "Life, Loss of Income, Contents, House Cover etc."
+    ),
 }
 
 # -------------------------------------------------------------------------
-# GLOBAL ACTIONS (Clear Amounts, Full Reset, Save/Load Backup)
+# GLOBAL ACTIONS (Clear Amounts, Full Reset)
 # -------------------------------------------------------------------------
-st.sidebar.header("📁 Save & Load Session")
-st.sidebar.markdown(
-    "Export your current form configuration to a file, or upload a saved JSON"
-    " file to reload your data."
-)
-
-uploaded_file = st.sidebar.file_uploader(
-    "Upload Saved Data (JSON)", type=["json"]
-)
-if uploaded_file is not None:
-  try:
-    imported_data = json.load(uploaded_file)
-    if "incomes" in imported_data:
-      st.session_state.incomes = imported_data["incomes"]
-    if "loans" in imported_data:
-      st.session_state.loans = imported_data["loans"]
-    if "expenses" in imported_data:
-      st.session_state.expenses = imported_data["expenses"]
-    st.sidebar.success("Data successfully imported! Reloading page...")
-    st.rerun()
-  except Exception as e:
-    st.sidebar.error(f"Error reading file: {e}")
-
 col_act1, col_act2, col_act3 = st.columns([1.5, 1.5, 4])
 
 
 def clear_amounts():
+  """Zeroes out all numeric amount inputs across session state and lists."""
   for key in list(st.session_state.keys()):
     if key.startswith("inc_amt_") or key.startswith("exp_amt_"):
       st.session_state[key] = 0.0
@@ -102,9 +78,14 @@ def clear_amounts():
       item["rate"] = 0.0
 
 
+def reset_form():
+  """Completely resets all session state keys."""
+  for key in list(st.session_state.keys()):
+    del st.session_state[key]
+
+
 with col_act1:
   st.button("🧹 Clear / Zero Amounts", on_click=clear_amounts, use_container_width=True)
-
 
 # -------------------------------------------------------------------------
 # PDF GENERATION FUNCTION
@@ -141,9 +122,11 @@ def create_pdf(
   )
   normal_style = styles["Normal"]
 
+  # Title
   elements.append(Paragraph("Dynamic Income & Expense Report", title_style))
   elements.append(Spacer(1, 10))
 
+  # Summary Table
   elements.append(Paragraph("1. Financial Summary", heading_style))
   summary_data = [
       ["Metric", "Monthly Value"],
@@ -166,6 +149,7 @@ def create_pdf(
   elements.append(t_summary)
   elements.append(Spacer(1, 15))
 
+  # Income Table
   elements.append(Paragraph("2. Net Income Streams", heading_style))
   inc_data = [["Source Name", "Amount", "Frequency", "Monthly Equivalent"]]
   for inc in incomes:
@@ -188,6 +172,7 @@ def create_pdf(
   elements.append(t_inc)
   elements.append(Spacer(1, 15))
 
+  # Loans & Debt Table
   if loans:
     elements.append(
         Paragraph("3. Debts & Loans Amortization Breakdown", heading_style)
@@ -226,6 +211,7 @@ def create_pdf(
     elements.append(t_loan)
     elements.append(Spacer(1, 15))
 
+  # Category Breakdown
   elements.append(Paragraph("4. Expense Breakdown by Category", heading_style))
   cat_data = [["Category", "Monthly Cost", "% of Total Expenses"]]
   for _, row in cat_summary_df.iterrows():
@@ -245,6 +231,7 @@ def create_pdf(
   elements.append(t_cat)
   elements.append(Spacer(1, 15))
 
+  # Detailed Expenses
   elements.append(Paragraph("5. Detailed Expense Items", heading_style))
   exp_data = [
       ["Category", "Expense Name", "Amount", "Frequency", "Monthly Equiv."]
@@ -456,6 +443,7 @@ for i, loan in enumerate(st.session_state.loans):
         label_visibility="collapsed",
     )
 
+  # Calculations
   monthly_rate = (lrate / 100.0) / 12.0
   total_months = int(lterm * 12)
   monthly_interest = lbal * monthly_rate
@@ -470,7 +458,7 @@ for i, loan in enumerate(st.session_state.loans):
     else:
       monthly_payment = lbal / total_months if total_months > 0 else 0.0
     monthly_principal = monthly_payment - monthly_interest
-  else:
+  else:  # Interest Only
     monthly_payment = monthly_interest
     monthly_principal = 0.0
 
@@ -540,34 +528,30 @@ if "expenses" not in st.session_state:
   st.session_state.expenses = [
       {
           "category": "House Hold Expenses",
-          "name": (
-              "House Insurance, Council Rates, Regional Rates, Water Rates,"
-              " Maintenance Costs etc"
-          ),
+          "name": "House Insurance, Council Rates, Regional Rates, Water Rates,Maintenance Costs etc",
           "amount": 400.0,
           "frequency": "Monthly",
       },
       {
           "category": "Vehicle Expenses",
           "name": (
-              "Insurances, Fuel, Registration, Tires, Warrent Of Fitness,"
-              " Maintenance/Servicing"
+              "Insurances, Fuel, Registration, Tires, Warrent"
+              " Of Fitness, Maintenance/Servicing"
           ),
           "amount": 600.0,
           "frequency": "Monthly",
       },
       {
           "category": "Living Expenses",
-          "name": (
-              "Food, Bakery, Entertainment, Personal care, Medical Costs,"
-              " Power, Gas, Internet Netflix etc"
-          ),
+          "name": "Food, Bakery, Entertainment, Personal care, Medical Costs, Power, Gas, Internet Netflix etc",
           "amount": 1500.0,
           "frequency": "Monthly",
       },
       {
           "category": "Insurances",
-          "name": "Life, Medical, Contents,Loss of Income etc",
+          "name": (
+              "Life, Medical, Contents,Loss of Income etc"
+          ),
           "amount": 500.0,
           "frequency": "Monthly",
       },
@@ -728,7 +712,7 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
     ]:
       loan_display_df[col] = loan_display_df[col].map("${:,.2f}".format)
     loan_display_df["Rate (%)"] = loan_display_df["Rate (%)"].map(
-        lambda val: f"{val:.2f}%"
+        "{:.2f}%".format
     )
     st.dataframe(loan_display_df, use_container_width=True)
 
@@ -749,28 +733,12 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
     st.dataframe(display_df, use_container_width=True)
 
   # -------------------------------------------------------------------------
-  # EXPORT OPTIONS (JSON Save, CSV, PDF)
+  # EXPORT OPTIONS (CSV & Native PDF Download)
   # -------------------------------------------------------------------------
   st.divider()
   st.subheader("Export Options")
 
-  col_json, col_csv, col_pdf = st.columns(3)
-
-  with col_json:
-    session_data_payload = {
-        "incomes": st.session_state.incomes,
-        "loans": st.session_state.loans,
-        "expenses": st.session_state.expenses,
-    }
-    json_string = json.dumps(session_data_payload, indent=4)
-
-    st.download_button(
-        label="💾 Save/Export Session (JSON)",
-        data=json_string,
-        file_name="financial_analyzer_backup.json",
-        mime="application/json",
-        use_container_width=True,
-    )
+  col_csv, col_pdf = st.columns(2)
 
   with col_csv:
     csv_buffer = io.StringIO()

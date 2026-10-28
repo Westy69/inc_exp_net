@@ -124,7 +124,7 @@ with col_act2:
 # -------------------------------------------------------------------------
 # PDF GENERATION FUNCTION
 # -------------------------------------------------------------------------
-def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_total_monthly):
+def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_total_monthly, lifetime_loan_summary):
     if not REPORTLAB_AVAILABLE:
         return None
         
@@ -156,11 +156,9 @@ def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_t
     )
     normal_style = styles["Normal"]
 
-    # Title
     elements.append(Paragraph("VortexCoach Income & Expense Report", title_style))
     elements.append(Spacer(1, 10))
 
-    # Summary Table
     elements.append(Paragraph("1. Financial Summary", heading_style))
     summary_data = [
         ["Metric", "Monthly Value"],
@@ -168,6 +166,9 @@ def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_t
         ["Total Monthly Expenses", f"${summary_metrics['expenses']:,.2f}"],
         ["Total Monthly Debt/Loans", f"${loan_total_monthly:,.2f}"],
         ["Net Surplus Funds", f"${summary_metrics['surplus']:,.2f}"],
+        ["Total Principal Borrowed", f"${lifetime_loan_summary['total_principal']:,.2f}"],
+        ["Total Lifetime Interest", f"${lifetime_loan_summary['total_interest']:,.2f}"],
+        ["Total Lifetime Payments", f"${lifetime_loan_summary['total_payments']:,.2f}"],
     ]
     t_summary = Table(summary_data, colWidths=[250, 250])
     t_summary.setStyle(
@@ -183,7 +184,6 @@ def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_t
     elements.append(t_summary)
     elements.append(Spacer(1, 15))
 
-    # Income Table
     elements.append(Paragraph("2. Net Income Streams", heading_style))
     inc_data = [["Source Name", "Amount", "Frequency", "Monthly Equivalent"]]
     for inc in incomes:
@@ -206,7 +206,6 @@ def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_t
     elements.append(t_inc)
     elements.append(Spacer(1, 15))
 
-    # Loans & Debt Table
     if loans:
         elements.append(Paragraph("3. Debts & Loans Amortization Breakdown", heading_style))
         loan_data = [[
@@ -237,7 +236,6 @@ def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_t
         elements.append(t_loan)
         elements.append(Spacer(1, 15))
 
-    # Category Breakdown
     elements.append(Paragraph("4. Expense Breakdown by Category", heading_style))
     cat_data = [["Category", "Monthly Cost", "% of Total Expenses"]]
     for _, row in cat_summary_df.iterrows():
@@ -259,7 +257,6 @@ def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_t
     elements.append(t_cat)
     elements.append(Spacer(1, 15))
 
-    # Detailed Expenses
     elements.append(Paragraph("5. Detailed Expense Items", heading_style))
     exp_data = [["Category", "Expense Name", "Amount", "Frequency", "Monthly Equiv."]]
     for exp in expenses:
@@ -369,7 +366,7 @@ if "loans" not in st.session_state:
         "fixed_lock_months": 0,
     }]
 
-loan_cols = st.columns([2.2, 1.5, 1.0, 1.0, 1.0, 1.2, 1.0, 1.0, 1.0, 0.6])
+loan_cols = st.columns([2.2, 1.5, 1.0, 1.0, 1.0, 1.2, 1.2, 1.0, 1.0, 0.6])
 with loan_cols[0]:
     st.markdown("**Loan Name**")
 with loan_cols[1]:
@@ -569,13 +566,47 @@ st.header("4. Summary & Reports")
 
 net_surplus = total_monthly_income - (total_monthly_expenses + total_loan_monthly)
 
+# Calculate lifetime loan commitments
+total_principal_borrowed = 0.0
+total_life_interest = 0.0
+total_life_payments = 0.0
+
+for loan in st.session_state.loans:
+    bal = float(loan["balance"])
+    r_rate = float(loan["rate"]) / 100.0
+    t_yrs = int(loan["term"])
+    l_type = loan["type"]
+    
+    total_principal_borrowed += bal
+    m_rate = r_rate / 12.0
+    t_months = t_yrs * 12
+    
+    if l_type == "INT":
+        m_pmt = bal * m_rate
+        l_interest = m_pmt * t_months
+        total_life_interest += l_interest
+        total_life_payments += bal + l_interest
+    else:
+        if m_rate > 0 and t_months > 0:
+            m_pmt = bal * (m_rate * (1 + m_rate) ** t_months) / ((1 + m_rate) ** t_months - 1)
+        else:
+            m_pmt = bal / t_months if t_months > 0 else 0.0
+        l_pmts = m_pmt * t_months
+        total_life_payments += l_pmts
+        total_life_interest += l_pmts - bal
+
 col_s1, col_s2, col_s3, col_s4 = st.columns(4)
 col_s1.metric("Total Income", f"${total_monthly_income:,.2f}")
 col_s2.metric("Total Expenses", f"${total_monthly_expenses:,.2f}")
 col_s3.metric("Total Debt Pmt", f"${total_loan_monthly:,.2f}")
 col_s4.metric("Net Surplus", f"${net_surplus:,.2f}", delta=f"${net_surplus:,.2f}")
 
-# Category Breakdown calculation
+st.markdown("### Lifetime Loan Commitments")
+col_l1, col_l2, col_l3 = st.columns(3)
+col_l1.metric("Total Principal Borrowed", f"${total_principal_borrowed:,.2f}")
+col_l2.metric("Total Life Interest", f"${total_life_interest:,.2f}")
+col_l3.metric("Total Lifetime Payments", f"${total_life_payments:,.2f}")
+
 cat_totals = {}
 for cat in categories:
     cat_totals[cat] = sum(e["monthly"] for e in st.session_state.expenses if e["category"] == cat)
@@ -592,7 +623,6 @@ else:
 st.subheader("Expense Breakdown by Category")
 st.dataframe(cat_df, use_container_width=True)
 
-# Export options
 st.subheader("Export Configuration")
 
 if REPORTLAB_AVAILABLE:
@@ -601,6 +631,11 @@ if REPORTLAB_AVAILABLE:
         "expenses": total_monthly_expenses,
         "surplus": net_surplus,
     }
+    lifetime_loan_summary = {
+        "total_principal": total_principal_borrowed,
+        "total_interest": total_life_interest,
+        "total_payments": total_life_payments,
+    }
     pdf_buffer = create_pdf(
         st.session_state.incomes,
         st.session_state.expenses,
@@ -608,6 +643,7 @@ if REPORTLAB_AVAILABLE:
         summary_metrics,
         cat_df,
         total_loan_monthly,
+        lifetime_loan_summary,
     )
     if pdf_buffer:
         st.download_button(
@@ -732,7 +768,10 @@ def run_velocity_simulation(
 
         total_debt_bal = sum(d["balance"] for d in debts)
 
-        logs.append({
+        # Record individual loan balances for the Vortex method tracking chart
+        loan_snapshot = {f"Loan_{d['name']}": round(d["balance"], 2) for d in debts}
+
+        log_entry = {
             "Month": month,
             "Total Debt Balance": round(total_debt_bal, 2),
             "LOC Balance": round(loc_bal, 2),
@@ -743,7 +782,9 @@ def run_velocity_simulation(
             "Total Interest Paid": round(
                 total_interest_loc + total_interest_debts, 2
             ),
-        })
+        }
+        log_entry.update(loan_snapshot)
+        logs.append(log_entry)
 
     return pd.DataFrame(logs)
 
@@ -810,6 +851,10 @@ if st.button("🚀 Run Payoff Simulation", type="primary"):
                 active_strat, list(all_results.values())[0]
             )
 
+            # Save simulation results into session state for secondary chart button access
+            st.session_state.simulation_results = results_df
+            st.session_state.active_strategy_name = active_strat
+
             total_months = results_df["Month"].max()
             total_interest = results_df["Total Interest Paid"].max()
 
@@ -862,3 +907,55 @@ if st.button("🚀 Run Payoff Simulation", type="primary"):
 
             with st.expander("🔍 View Month-by-Month Amortization Schedule"):
                 st.dataframe(results_df, use_container_width=True)
+
+# -------------------------------------------------------------------------
+# 6. VORTEX METHOD: INDIVIDUAL LOAN P&I RAPID PAYDOWN TRACKING
+# -------------------------------------------------------------------------
+if "simulation_results" in st.session_state and st.session_state.simulation_results is not None:
+    st.divider()
+    st.subheader("🌀 Vortex Method: Individual Loan Paydown Tracking (P&I)")
+    st.markdown(
+        "Compare how each individual loan and your Line of Credit amortize down simultaneously "
+        "under the rapid paydown Vortex strategy."
+    )
+
+    if st.button("📊 Generate Vortex Individual Loan Comparison Chart"):
+        res_df = st.session_state.simulation_results
+        strat_name = st.session_state.get("active_strategy_name", "Selected Strategy")
+
+        fig_vortex = go.Figure()
+
+        # Plot individual loan curves stored during simulation
+        for col in res_df.columns:
+            if col.startswith("Loan_"):
+                loan_label = col.replace("Loan_", "")
+                fig_vortex.add_trace(
+                    go.Scatter(
+                        x=res_df["Month"],
+                        y=res_df[col],
+                        name=f"{loan_label} Balance",
+                        mode="lines",
+                        line=dict(width=2),
+                    )
+                )
+
+        # Plot Line of Credit curve
+        if "LOC Balance" in res_df.columns:
+            fig_vortex.add_trace(
+                go.Scatter(
+                    x=res_df["Month"],
+                    y=res_df["LOC Balance"],
+                    name="Line of Credit (LOC) Balance",
+                    mode="lines",
+                    line=dict(color="firebrick", width=2, dash="dash"),
+                )
+            )
+
+        fig_vortex.update_layout(
+            title=f"Vortex Rapid Paydown Breakdown by Loan ({strat_name})",
+            xaxis_title="Months",
+            yaxis_title="Principal Balance ($)",
+            hovermode="x unified",
+            template="plotly_white",
+        )
+        st.plotly_chart(fig_vortex, use_container_width=True)

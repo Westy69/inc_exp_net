@@ -234,7 +234,7 @@ def create_pdf(
   # Detailed Expenses
   elements.append(Paragraph("5. Detailed Expense Items", heading_style))
   exp_data = [
-      ["Category", "Expense Name", "Amount", "Frequency", "Monthly Equiv."]
+      ["Category", "Expense Name (add yours below) ", "Amount (add yours below) ", "Frequency-Select from drop down", "Monthly Equiv."]
   ]
   for exp in expenses:
     exp_data.append([

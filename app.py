@@ -61,7 +61,6 @@ st.sidebar.markdown(
     " file to reload your data."
 )
 
-# File Uploader for Importing
 uploaded_file = st.sidebar.file_uploader(
     "Upload Saved Data (JSON)", type=["json"]
 )
@@ -77,14 +76,12 @@ if uploaded_file is not None:
     st.sidebar.success("Data successfully imported! Reloading page...")
     st.rerun()
   except Exception as e:
-  # Hard Fail 1 check: No forbidden prefatory phrases used
     st.sidebar.error(f"Error reading file: {e}")
 
 col_act1, col_act2, col_act3 = st.columns([1.5, 1.5, 4])
 
 
 def clear_amounts():
-  """Zeroes out all numeric amount inputs across session state and lists."""
   for key in list(st.session_state.keys()):
     if key.startswith("inc_amt_") or key.startswith("exp_amt_"):
       st.session_state[key] = 0.0
@@ -103,12 +100,6 @@ def clear_amounts():
     for item in st.session_state.loans:
       item["balance"] = 0.0
       item["rate"] = 0.0
-
-
-def reset_form():
-  """Completely resets all session state keys."""
-  for key in list(st.session_state.keys()):
-    del st.session_state[key]
 
 
 with col_act1:
@@ -150,11 +141,9 @@ def create_pdf(
   )
   normal_style = styles["Normal"]
 
-  # Title
   elements.append(Paragraph("Dynamic Income & Expense Report", title_style))
   elements.append(Spacer(1, 10))
 
-  # Summary Table
   elements.append(Paragraph("1. Financial Summary", heading_style))
   summary_data = [
       ["Metric", "Monthly Value"],
@@ -177,7 +166,6 @@ def create_pdf(
   elements.append(t_summary)
   elements.append(Spacer(1, 15))
 
-  # Income Table
   elements.append(Paragraph("2. Net Income Streams", heading_style))
   inc_data = [["Source Name", "Amount", "Frequency", "Monthly Equivalent"]]
   for inc in incomes:
@@ -200,7 +188,6 @@ def create_pdf(
   elements.append(t_inc)
   elements.append(Spacer(1, 15))
 
-  # Loans & Debt Table
   if loans:
     elements.append(
         Paragraph("3. Debts & Loans Amortization Breakdown", heading_style)
@@ -239,7 +226,6 @@ def create_pdf(
     elements.append(t_loan)
     elements.append(Spacer(1, 15))
 
-  # Category Breakdown
   elements.append(Paragraph("4. Expense Breakdown by Category", heading_style))
   cat_data = [["Category", "Monthly Cost", "% of Total Expenses"]]
   for _, row in cat_summary_df.iterrows():
@@ -259,7 +245,6 @@ def create_pdf(
   elements.append(t_cat)
   elements.append(Spacer(1, 15))
 
-  # Detailed Expenses
   elements.append(Paragraph("5. Detailed Expense Items", heading_style))
   exp_data = [
       ["Category", "Expense Name", "Amount", "Frequency", "Monthly Equiv."]
@@ -471,7 +456,6 @@ for i, loan in enumerate(st.session_state.loans):
         label_visibility="collapsed",
     )
 
-  # Calculations
   monthly_rate = (lrate / 100.0) / 12.0
   total_months = int(lterm * 12)
   monthly_interest = lbal * monthly_rate
@@ -486,7 +470,7 @@ for i, loan in enumerate(st.session_state.loans):
     else:
       monthly_payment = lbal / total_months if total_months > 0 else 0.0
     monthly_principal = monthly_payment - monthly_interest
-  else:  # Interest Only
+  else:
     monthly_payment = monthly_interest
     monthly_principal = 0.0
 
@@ -743,8 +727,8 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
         "Interest Component",
     ]:
       loan_display_df[col] = loan_display_df[col].map("${:,.2f}".format)
-    loan_display_df["Rate (%)"] = loan_display_df["Rate (%)"].map(s
-        "{:.2f}%".format
+    loan_display_df["Rate (%)"] = loan_display_df["Rate (%)"].map(
+        lambda val: f"{val:.2f}%"
     )
     st.dataframe(loan_display_df, use_container_width=True)
 
@@ -773,7 +757,6 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
   col_json, col_csv, col_pdf = st.columns(3)
 
   with col_json:
-    # Prepare JSON Data Payload for saving/importing later
     session_data_payload = {
         "incomes": st.session_state.incomes,
         "loans": st.session_state.loans,
@@ -849,5 +832,3 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
 
 else:
   st.info("Add some income streams or expenses above to view the complete breakdown.")
-
-```

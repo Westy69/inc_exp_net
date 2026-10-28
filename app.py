@@ -740,12 +740,12 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
     st.dataframe(display_df, use_container_width=True)
 
   # -------------------------------------------------------------------------
-  # EXPORT OPTIONS (CSV, Excel Multi-Sheet, & PDF Download)
+  # EXPORT OPTIONS (CSV & Native PDF Download)
   # -------------------------------------------------------------------------
   st.divider()
   st.subheader("Export Options")
 
-  col_csv, col_excel, col_pdf = st.columns(3)
+  col_csv, col_pdf = st.columns(2)
 
   with col_csv:
     csv_buffer = io.StringIO()
@@ -774,66 +774,6 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
         data=csv_buffer.getvalue(),
         file_name="income_and_expense_report.csv",
         mime="text/csv",
-        use_container_width=True,
-    )
-
-  with col_excel:
-    # Full multi-table Excel workbook export (.xlsx) keeping tables intact
-    excel_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
-      # 1. Summary Sheet
-      summary_df = pd.DataFrame({
-          "Metric": [
-              "Total Monthly Income",
-              "Total Monthly Expenses",
-              "Total Monthly Debt",
-              "Net Surplus Funds",
-          ],
-          "Monthly Value ($)": [
-              total_monthly_income,
-              total_all_expenses,
-              total_loan_monthly,
-              net_surplus,
-          ],
-      })
-      summary_df.to_excel(writer, sheet_name="Financial Summary", index=False)
-
-      # 2. Income Streams Sheet
-      if st.session_state.incomes:
-        inc_df_exp = pd.DataFrame(st.session_state.incomes)
-        inc_df_exp.to_excel(writer, sheet_name="Income Streams", index=False)
-
-      # 3. Debts & Loans Sheet
-      if st.session_state.loans:
-        loan_df_exp = pd.DataFrame(st.session_state.loans)
-        loan_df_exp.to_excel(writer, sheet_name="Loans & Amortization", index=False)
-
-      # 4. Category Breakdown Sheet
-      cat_df_exp = pd.DataFrame(
-          {
-              "Category": cat_summary.index,
-              "Monthly Cost ($)": cat_summary.values,
-              "% of Total Expenses": (
-                  (cat_summary.values / total_all_expenses * 100)
-                  if total_all_expenses > 0
-                  else 0
-              ),
-          }
-      )
-      cat_df_exp.to_excel(writer, sheet_name="Category Breakdown", index=False)
-
-      # 5. Detailed Expenses Sheet
-      if not exp_df.empty:
-        exp_df.to_excel(writer, sheet_name="Detailed Expenses", index=False)
-
-    excel_data = excel_buffer.getvalue()
-    st.download_button(
-        label="📊 Export Full Excel (.xlsx)",
-        data=excel_data,
-        file_name="income_and_expense_report.xlsx",
-        mime=(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ),
         use_container_width=True,
     )
 

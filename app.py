@@ -112,26 +112,26 @@ categories = [
 if "expenses" not in st.session_state:
     st.session_state.expenses = [
         {
-            "category": "House Expenses",
-            "name": "Rates & Insurance",
+            "category": "Household Expenses",
+            "name": "Rates & Insurances, Maintenance Costs etc",
             "amount": 400.0,
             "frequency": "Monthly",
         },
         {
             "category": "Vehicle Expenses",
-            "name": "Vehicle Payments & Insurance",
+            "name": "Vehicle Payments, Insurances, Fuel, Registration, Tires, Warrent Of Fitness, Maintenance/Servicing",
             "amount": 600.0,
             "frequency": "Monthly",
         },
         {
             "category": "Household Costs",
-            "name": "Groceries, Power, Internet & Subs",
+            "name": "Groceries, Power, Gas, Internet & Subs",
             "amount": 1500.0,
             "frequency": "Monthly",
         },
         {
             "category": "Personal Expenses",
-            "name": "Entertainment & Lifestyle",
+            "name": "Entertainment & Lifestyle, Takeaways, Bakery Food, Coffees, Restaurants etc",
             "amount": 500.0,
             "frequency": "Monthly",
         },

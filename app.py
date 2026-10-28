@@ -545,7 +545,7 @@ if "expenses" not in st.session_state:
       },
       {
           "category": "Living Expenses",
-          "name": "Food, Bakery, Power, Gas, Internet Netflix etc",
+          "name": "Food, Bakery, Entertainment, Personal care, Medical Costs, Power, Gas, Internet Netflix etc",
           "amount": 1500.0,
           "frequency": "Monthly",
       },

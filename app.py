@@ -1,19 +1,13 @@
 import io
 import json
+import uuid
 import pandas as pd
 import streamlit as st
 
 # Safe import for reportlab
 try:
   from reportlab.lib import colors
-  from reportlab.lib.pagesizes import letter
-  from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-  from reportlab.platypus import (
-      Paragraph,
-      SimpleDocTemplate,
-      Spacer,
-      Table,
-      TableStyle,
+  from reportlab
   )
 
   REPORTLAB_AVAILABLE = True

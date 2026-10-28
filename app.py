@@ -835,5 +835,3 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
 
 else:
   st.info("Add some income streams or expenses above to view the complete breakdown.")
-
-```

@@ -529,15 +529,15 @@ with st.expander("ℹ️ Click here for Category Descriptions & Examples"):
 if "expenses" not in st.session_state:
   st.session_state.expenses = [
       {
-          "category": "House Expenses",
-          "name": "Council Rates, Regional Rates, Water Rates,Maintenance Costs etc",
+          "category": "House Hold Expenses",
+          "name": "House Insurance, Council Rates, Regional Rates, Water Rates,Maintenance Costs etc",
           "amount": 400.0,
           "frequency": "Monthly",
       },
       {
           "category": "Vehicle Expenses",
           "name": (
-              "Vehicle Payments, Insurances, Fuel, Registration, Tires, Warrent"
+              "Insurances, Fuel, Registration, Tires, Warrent"
               " Of Fitness, Maintenance/Servicing"
           ),
           "amount": 600.0,
@@ -545,15 +545,14 @@ if "expenses" not in st.session_state:
       },
       {
           "category": "Living Expenses",
-          "name": "Food, Power, Gas, Internet & Subs",
+          "name": "Food, Bakery, Power, Gas, Internet Netflix etc",
           "amount": 1500.0,
           "frequency": "Monthly",
       },
       {
-          "category": "Personal Expenses",
+          "category": "Insurances",
           "name": (
-              "Entertainment & Lifestyle, Takeaways, Bakery Food, Coffees,"
-              " Restaurants etc"
+              "Life, Medical, Contents,Loss of Income etc"
           ),
           "amount": 500.0,
           "frequency": "Monthly",

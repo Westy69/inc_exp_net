@@ -1,5 +1,4 @@
 import io
-import json
 import uuid
 import pandas as pd
 import streamlit as st
@@ -23,8 +22,7 @@ st.set_page_config(
 st.title("💰 Dynamic Income & Expense Analyzer")
 st.markdown(
     "Dynamically manage income streams, categorized expenses, and debt/loan "
-    "amortizations with auto-calculated payments. Save and load your data "
-    "seamlessly using JSON configuration files."
+    "amortizations with auto-calculated payments."
 )
 
 # -------------------------------------------------------------------------
@@ -49,30 +47,8 @@ category_help = {
 }
 
 # -------------------------------------------------------------------------
-# GLOBAL ACTIONS (Clear Amounts, Full Reset, Save/Load Backup)
+# GLOBAL ACTIONS (Clear Amounts, Full Reset)
 # -------------------------------------------------------------------------
-st.sidebar.header("📁 Save & Load Session")
-st.sidebar.markdown(
-    "Export your current form configuration to a file, or upload a saved JSON "
-    "file to reload your data."
-)
-
-# File Uploader for Importing
-uploaded_file = st.sidebar.file_uploader("Upload Saved Data (JSON)", type=["json"])
-if uploaded_file is not None:
-    try:
-        imported_data = json.load(uploaded_file)
-        if "incomes" in imported_data:
-            st.session_state.incomes = imported_data["incomes"]
-        if "loans" in imported_data:
-            st.session_state.loans = imported_data["loans"]
-        if "expenses" in imported_data:
-            st.session_state.expenses = imported_data["expenses"]
-        st.sidebar.success("Data successfully imported! Reloading page...")
-        st.rerun()
-    except Exception as e:
-        st.sidebar.error(f"Error reading file: {e}")
-
 col_act1, col_act2, col_act3 = st.columns([1.5, 1.5, 4])
 
 def clear_amounts():
@@ -100,12 +76,6 @@ def reset_form():
 
 with col_act1:
     st.button("🧹 Clear / Zero Amounts", on_click=clear_amounts, use_container_width=True)
-
-with col_act2:
-    if st.button("🔄 Reset All Data", use_container_width=True):
-        reset_form()
-        st.rerun()
-
 # -------------------------------------------------------------------------
 # PDF GENERATION FUNCTION
 # -------------------------------------------------------------------------
@@ -571,18 +541,6 @@ st.dataframe(cat_df, use_container_width=True)
 
 # Export options
 st.subheader("Export Configuration")
-config_data = {
-    "incomes": st.session_state.get("incomes", []),
-    "loans": st.session_state.get("loans", []),
-    "expenses": st.session_state.get("expenses", []),
-}
-json_string = json.dumps(config_data, indent=4)
-st.download_button(
-    label="💾 Download Session as JSON",
-    data=json_string,
-    file_name="budget_config.json",
-    mime="application/json",
-)
 
 if REPORTLAB_AVAILABLE:
     summary_metrics = {

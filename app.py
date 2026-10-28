@@ -27,7 +27,8 @@ st.set_page_config(
 st.title("💰 Dynamic Income & Expense Analyzer")
 st.markdown(
     "Dynamically manage income streams, categorized expenses, and debt/loan"
-    " amortizations with auto-calculated payments."
+    " amortizations with auto-calculated payments. Save and load your data"
+    " seamlessly using JSON configuration files."
 )
 
 # -------------------------------------------------------------------------
@@ -52,12 +53,32 @@ category_help = {
 }
 
 # -------------------------------------------------------------------------
-# GLOBAL ACTIONS (Clear Amounts, Full Reset)
+# GLOBAL ACTIONS (Clear Amounts, Full Reset, Save/Load Backup)
 # -------------------------------------------------------------------------
-st.sidebar.header("📁 Session Controls")
-st.sidebar.markdown("Manage your current session data.")
+st.sidebar.header("📁 Save & Load Session")
+st.sidebar.markdown(
+    "Export your current form configuration to a file, or upload a saved JSON"
+    " file to reload your data."
+)
 
-col_act1, col_act2 = st.columns([1.5, 4])
+uploaded_file = st.sidebar.file_uploader(
+    "Upload Saved Data (JSON)", type=["json"]
+)
+if uploaded_file is not None:
+  try:
+    imported_data = json.load(uploaded_file)
+    if "incomes" in imported_data:
+      st.session_state.incomes = imported_data["incomes"]
+    if "loans" in imported_data:
+      st.session_state.loans = imported_data["loans"]
+    if "expenses" in imported_data:
+      st.session_state.expenses = imported_data["expenses"]
+    st.sidebar.success("Data successfully imported! Reloading page...")
+    st.rerun()
+  except Exception as e:
+    st.sidebar.error(f"Error reading file: {e}")
+
+col_act1, col_act2, col_act3 = st.columns([1.5, 1.5, 4])
 
 
 def clear_amounts():
@@ -309,9 +330,7 @@ for i, inc in enumerate(st.session_state.incomes):
     freq = st.selectbox(
         "Frequency",
         list(freq_multipliers.keys()),
-        index=list(freq_multipliers.keys()).index(inc["frequency"])
-        if inc["frequency"] in freq_multipliers
-        else 0,
+        index=list(freq_multipliers.keys()).index(inc["frequency"]),
         key=f"inc_freq_{i}",
         label_visibility="collapsed",
     )
@@ -599,9 +618,7 @@ for i, exp in enumerate(st.session_state.expenses):
     efreq = st.selectbox(
         "Frequency",
         list(freq_multipliers.keys()),
-        index=list(freq_multipliers.keys()).index(exp["frequency"])
-        if exp["frequency"] in freq_multipliers
-        else 0,
+        index=list(freq_multipliers.keys()).index(exp["frequency"]),
         key=f"exp_freq_{i}",
         label_visibility="collapsed",
     )
@@ -732,12 +749,28 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
     st.dataframe(display_df, use_container_width=True)
 
   # -------------------------------------------------------------------------
-  # EXPORT OPTIONS (CSV & PDF)
+  # EXPORT OPTIONS (JSON Save, CSV, PDF)
   # -------------------------------------------------------------------------
   st.divider()
   st.subheader("Export Options")
 
-  col_csv, col_pdf = st.columns(2)
+  col_json, col_csv, col_pdf = st.columns(3)
+
+  with col_json:
+    session_data_payload = {
+        "incomes": st.session_state.incomes,
+        "loans": st.session_state.loans,
+        "expenses": st.session_state.expenses,
+    }
+    json_string = json.dumps(session_data_payload, indent=4)
+
+    st.download_button(
+        label="💾 Save/Export Session (JSON)",
+        data=json_string,
+        file_name="financial_analyzer_backup.json",
+        mime="application/json",
+        use_container_width=True,
+    )
 
   with col_csv:
     csv_buffer = io.StringIO()

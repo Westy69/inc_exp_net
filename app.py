@@ -27,8 +27,7 @@ st.set_page_config(
 st.title("💰 Dynamic Income & Expense Analyzer")
 st.markdown(
     "Dynamically manage income streams, categorized expenses, and debt/loan"
-    " amortizations with auto-calculated payments. Save and load your data"
-    " seamlessly using JSON configuration files."
+    " amortizations with auto-calculated payments."
 )
 
 # -------------------------------------------------------------------------
@@ -53,39 +52,12 @@ category_help = {
 }
 
 # -------------------------------------------------------------------------
-# GLOBAL ACTIONS (Clear Amounts, Full Reset, Save/Load Backup)
+# GLOBAL ACTIONS (Clear Amounts, Full Reset)
 # -------------------------------------------------------------------------
-st.sidebar.header("📁 Save & Load Session")
-st.sidebar.markdown(
-    "Export your current form configuration to a file, or upload a saved JSON"
-    " file to reload your data."
-)
+st.sidebar.header("📁 Session Controls")
+st.sidebar.markdown("Manage your current session data.")
 
-uploaded_file = st.sidebar.file_uploader(
-    "Upload Saved Data (JSON)", type=["json"], key="json_uploader"
-)
-
-if uploaded_file is not None:
-  # Use file ID check to prevent infinite rerun loops
-  if "last_uploaded_file" not in st.session_state or st.session_state.last_uploaded_file != uploaded_file.file_id:
-    try:
-      file_bytes = uploaded_file.getvalue()
-      imported_data = json.loads(file_bytes.decode("utf-8"))
-      
-      if "incomes" in imported_data:
-        st.session_state.incomes = imported_data["incomes"]
-      if "loans" in imported_data:
-        st.session_state.loans = imported_data["loans"]
-      if "expenses" in imported_data:
-        st.session_state.expenses = imported_data["expenses"]
-        
-      st.session_state.last_uploaded_file = uploaded_file.file_id
-      st.sidebar.success("Data successfully loaded!")
-      st.rerun()
-    except Exception as e:
-      st.sidebar.error(f"Error reading file: {e}")
-
-col_act1, col_act2, col_act3 = st.columns([1.5, 1.5, 4])
+col_act1, col_act2 = st.columns([1.5, 4])
 
 
 def clear_amounts():
@@ -760,28 +732,12 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
     st.dataframe(display_df, use_container_width=True)
 
   # -------------------------------------------------------------------------
-  # EXPORT OPTIONS (JSON Save, CSV, PDF)
+  # EXPORT OPTIONS (CSV & PDF)
   # -------------------------------------------------------------------------
   st.divider()
   st.subheader("Export Options")
 
-  col_json, col_csv, col_pdf = st.columns(3)
-
-  with col_json:
-    session_data_payload = {
-        "incomes": st.session_state.incomes,
-        "loans": st.session_state.loans,
-        "expenses": st.session_state.expenses,
-    }
-    json_string = json.dumps(session_data_payload, indent=4)
-
-    st.download_button(
-        label="💾 Save/Export Session (JSON)",
-        data=json_string,
-        file_name="financial_analyzer_backup.json",
-        mime="application/json",
-        use_container_width=True,
-    )
+  col_csv, col_pdf = st.columns(2)
 
   with col_csv:
     csv_buffer = io.StringIO()

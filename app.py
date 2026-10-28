@@ -66,14 +66,17 @@ uploaded_file = st.sidebar.file_uploader(
 )
 if uploaded_file is not None:
   try:
-    imported_data = json.load(uploaded_file)
+    file_bytes = uploaded_file.getvalue()
+    imported_data = json.loads(file_bytes.decode("utf-8"))
+    
     if "incomes" in imported_data:
       st.session_state.incomes = imported_data["incomes"]
     if "loans" in imported_data:
       st.session_state.loans = imported_data["loans"]
     if "expenses" in imported_data:
       st.session_state.expenses = imported_data["expenses"]
-    st.sidebar.success("Data successfully imported! Reloading page...")
+      
+    st.sidebar.success("Data successfully loaded!")
     st.rerun()
   except Exception as e:
     st.sidebar.error(f"Error reading file: {e}")
@@ -832,3 +835,5 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
 
 else:
   st.info("Add some income streams or expenses above to view the complete breakdown.")
+
+```

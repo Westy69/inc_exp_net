@@ -89,10 +89,6 @@ def reset_form():
 with col_act1:
   st.button("🧹 Clear / Zero Amounts", on_click=clear_amounts, use_container_width=True)
 
-with col_act2:
-  st.button("🔄 Reset Entire Form", on_click=reset_form, use_container_width=True)
-
-
 # -------------------------------------------------------------------------
 # PDF GENERATION FUNCTION
 # -------------------------------------------------------------------------

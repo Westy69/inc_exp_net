@@ -33,22 +33,20 @@ st.markdown(
 # CATEGORY GUIDELINES / HELPER DICTIONARY
 # -------------------------------------------------------------------------
 category_help = {
-    "House Expenses": (
-        "Includes property rates, house and contents insurances, ongoing home"
+    "House Hold Expenses": (
+        "Includes property rates, ongoing home"
         " maintenance, repairs, body corporate fees, etc."
     ),
     "Vehicle Expenses": (
-        "Includes vehicle loan or lease payments, vehicle insurances, fuel,"
-        " warrant of fitness (WOF), registration, tires, and scheduled"
-        " servicing/maintenance."
+        "Vehicle insurances, fuel, Warrant of fitness (WOF), Registration/Licencing, Tires, and scheduled"
+        " servicing/maintenance, Unplanned Repairs."
     ),
-    "Household Costs": (
-        "Includes supermarket groceries, power/electricity, gas, internet, home"
+    "Living Expenses": (
+        "Includes supermarket groceries, power/electricity, gas, internet, Mobile"
         " phone, and recurring household subscriptions (Netflix, Spotify, etc.)."
     ),
-    "Personal Expenses": (
-        "Includes entertainment, lifestyle activities, takeaways, bakery food,"
-        " coffees, restaurant dining, personal care, and clothing."
+    "Insurances": (
+        "Life, Loss of Income, Contents, House."
     ),
 }
 

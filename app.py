@@ -1,6 +1,8 @@
+import copy
 import io
 import uuid
 import pandas as pd
+import plotly.graph_objects as go
 import streamlit as st
 
 # Safe import for reportlab
@@ -22,7 +24,7 @@ st.set_page_config(
 st.title("💰 Dynamic Income & Expense Analyzer")
 st.markdown(
     "Dynamically manage income streams, categorized expenses, and debt/loan "
-    "amortizations with auto-calculated payments."
+    "amortizations with auto-calculated payments and velocity banking simulations."
 )
 
 # -------------------------------------------------------------------------
@@ -45,6 +47,43 @@ category_help = {
     ),
     "Insurances": "Life, Loss of Income, Contents, House Cover etc.",
 }
+
+# -------------------------------------------------------------------------
+# SIDEBAR: VELOCITY BANKING & LOC SETTINGS
+# -------------------------------------------------------------------------
+st.sidebar.header("⚡ Line of Credit (LOC) Settings")
+loc_limit = st.sidebar.number_input(
+    "LOC Total Limit ($)", value=200000.0, step=5000.0
+)
+loc_interest_rate = (
+    st.sidebar.number_input(
+        "LOC Annual Interest Rate (%)", value=6.2, step=0.1
+    )
+    / 100.0
+)
+loc_current_balance = st.sidebar.number_input(
+    "Current LOC Balance ($)", value=127000.0, step=1000.0
+)
+max_chunk_ratio = (
+    st.sidebar.slider("Max % of LOC Limit to use for a Chunk", 20, 95, 95)
+    / 100.0
+)
+safety_buffer = st.sidebar.number_input(
+    "Safety Buffer / Emergency Reserve ($)", value=1000.0, step=100.0
+)
+
+st.sidebar.header("🎯 Priority Strategy Selection")
+strategy_mode = st.sidebar.selectbox(
+    "Select Strategy Option",
+    [
+        "Auto-Select Best Strategy (Compare All)",
+        "Highest Interest First (Avalanche)",
+        "Lowest Balance First (Snowball)",
+        "Highest Payment First (Cash-Flow Boost)",
+    ],
+)
+
+st.sidebar.divider()
 
 # -------------------------------------------------------------------------
 # GLOBAL ACTIONS (Clear Amounts, Full Reset)
@@ -76,6 +115,12 @@ def reset_form():
 
 with col_act1:
     st.button("🧹 Clear / Zero Amounts", on_click=clear_amounts, use_container_width=True)
+
+with col_act2:
+    if st.button("🔄 Reset All Data", use_container_width=True):
+        reset_form()
+        st.rerun()
+
 # -------------------------------------------------------------------------
 # PDF GENERATION FUNCTION
 # -------------------------------------------------------------------------
@@ -112,7 +157,7 @@ def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_t
     normal_style = styles["Normal"]
 
     # Title
-    elements.append(Paragraph("Dynamic Income & Expense Report", title_style))
+    elements.append(Paragraph("VortexCoach Income & Expense Report", title_style))
     elements.append(Spacer(1, 10))
 
     # Summary Table
@@ -321,9 +366,10 @@ if "loans" not in st.session_state:
         "rate": 6.5,
         "type": "P&I",
         "term": 25,
+        "fixed_lock_months": 0,
     }]
 
-loan_cols = st.columns([2.5, 1.8, 1.2, 1.2, 1.2, 1.5, 1.2, 1.2, 0.8])
+loan_cols = st.columns([2.2, 1.5, 1.0, 1.0, 1.0, 1.2, 1.0, 1.0, 1.0, 0.6])
 with loan_cols[0]:
     st.markdown("**Loan Name**")
 with loan_cols[1]:
@@ -335,12 +381,14 @@ with loan_cols[3]:
 with loan_cols[4]:
     st.markdown("**Term (Yrs)**")
 with loan_cols[5]:
-    st.markdown("**Monthly Pmt**")
+    st.markdown("**Fixed Lock**")
 with loan_cols[6]:
-    st.markdown("**Principal**")
+    st.markdown("**Monthly Pmt**")
 with loan_cols[7]:
-    st.markdown("**Interest**")
+    st.markdown("**Principal**")
 with loan_cols[8]:
+    st.markdown("**Interest**")
+with loan_cols[9]:
     st.markdown("**Action**")
 
 updated_loans = []
@@ -348,9 +396,10 @@ total_loan_monthly = 0.0
 total_loan_principal = 0.0
 total_loan_interest = 0.0
 loan_types = ["P&I", "INT"]
+lock_options = [0, 12, 24, 36, 48, 60]
 
 for i, loan in enumerate(st.session_state.loans):
-    lc1, lc2, lc3, lc4, lc5, lc6, lc7, lc8, lc9 = st.columns([2.5, 1.8, 1.2, 1.2, 1.2, 1.5, 1.2, 1.2, 0.8])
+    lc1, lc2, lc3, lc4, lc5, lc6, lc7, lc8, lc9, lc10 = st.columns([2.2, 1.5, 1.0, 1.0, 1.0, 1.2, 1.2, 1.0, 1.0, 0.6])
     with lc1:
         lname = st.text_input("Loan Name", value=loan["name"], key=f"loan_name_{i}", label_visibility="collapsed")
     with lc2:
@@ -361,6 +410,9 @@ for i, loan in enumerate(st.session_state.loans):
         ltype = st.selectbox("Type", loan_types, index=loan_types.index(loan["type"]) if loan["type"] in loan_types else 0, key=f"loan_type_{i}", label_visibility="collapsed")
     with lc5:
         lterm = st.number_input("Term (Yrs)", min_value=1, max_value=50, step=1, value=int(loan["term"]), key=f"loan_term_{i}", label_visibility="collapsed")
+    with lc6:
+        current_lock = loan.get("fixed_lock_months", 0)
+        llock = st.selectbox("Lock", lock_options, index=lock_options.index(current_lock) if current_lock in lock_options else 0, key=f"loan_lock_{i}", label_visibility="collapsed")
 
     # Calculations
     monthly_rate = (lrate / 100.0) / 12.0
@@ -380,13 +432,13 @@ for i, loan in enumerate(st.session_state.loans):
         monthly_payment = monthly_interest
         monthly_principal = 0.0
 
-    with lc6:
-        st.markdown(f"**${monthly_payment:,.2f}**")
     with lc7:
-        st.markdown(f"${monthly_principal:,.2f}")
+        st.markdown(f"**${monthly_payment:,.2f}**")
     with lc8:
-        st.markdown(f"${monthly_interest:,.2f}")
+        st.markdown(f"${monthly_principal:,.2f}")
     with lc9:
+        st.markdown(f"${monthly_interest:,.2f}")
+    with lc10:
         lrem = st.button("❌", key=f"loan_rem_{i}")
 
     if not lrem:
@@ -399,6 +451,7 @@ for i, loan in enumerate(st.session_state.loans):
             "rate": lrate,
             "type": ltype,
             "term": lterm,
+            "fixed_lock_months": llock,
             "monthly_payment": monthly_payment,
             "monthly_principal": monthly_principal,
             "monthly_interest": monthly_interest,
@@ -407,7 +460,7 @@ for i, loan in enumerate(st.session_state.loans):
 st.session_state.loans = updated_loans
 
 if st.button("➕ Add Loan / Debt"):
-    st.session_state.loans.append({"name": "New Loan", "balance": 10000.0, "rate": 5.0, "type": "P&I", "term": 5})
+    st.session_state.loans.append({"name": "New Loan", "balance": 10000.0, "rate": 5.0, "type": "P&I", "term": 5, "fixed_lock_months": 0})
     st.rerun()
 
 st.metric("Total Monthly Debt Payments", f"${total_loan_monthly:,.2f}")
@@ -565,3 +618,247 @@ if REPORTLAB_AVAILABLE:
         )
 else:
     st.info("ReportLab is not installed; PDF report generation is currently disabled.")
+
+st.divider()
+
+# -------------------------------------------------------------------------
+# 5. VELOCITY BANKING & DEBT PAYOFF SIMULATION ENGINE
+# -------------------------------------------------------------------------
+st.header("⚡ Velocity Banking & Debt Payoff Simulation")
+st.markdown(
+    "Run simulations using your live debt tables, cash flow surplus, and Line of Credit (LOC) settings."
+)
+
+def sort_debts(debts, strategy):
+    if strategy == "Highest Payment First (Cash-Flow Boost)":
+        return sorted(debts, key=lambda x: x.get("monthly_payment", x.get("min_pay", 0)), reverse=True)
+    elif strategy == "Highest Interest First (Avalanche)":
+        return sorted(debts, key=lambda x: x["rate"], reverse=True)
+    elif strategy == "Lowest Balance First (Snowball)":
+        return sorted(debts, key=lambda x: x["balance"])
+    return debts
+
+def run_velocity_simulation(
+    debts_input,
+    income,
+    expenses,
+    loc_limit,
+    loc_rate,
+    loc_start_bal,
+    max_chunk_pct,
+    buffer,
+    strategy,
+):
+    debts = copy.deepcopy(debts_input)
+    for d in debts:
+        if d["rate"] > 1.0:
+            d["rate"] = d["rate"] / 100.0
+
+    loc_bal = loc_start_bal
+    max_chunk_allowed = loc_limit * max_chunk_pct
+
+    month = 0
+    max_months = 360
+    logs = []
+
+    total_interest_debts = 0.0
+    total_interest_loc = 0.0
+
+    while month < max_months:
+        month += 1
+
+        active_debts = [d for d in debts if d["balance"] > 0.01]
+        if not active_debts and loc_bal <= 0.01:
+            break
+
+        total_min_payments = sum(d.get("monthly_payment", d.get("min_pay", 0)) for d in active_debts)
+        monthly_cash_flow = income - expenses - total_min_payments
+
+        if monthly_cash_flow < 0:
+            st.error(
+                f"Month {month}: Expenses and Minimum Payments exceed Monthly Income!"
+                " Positive cash flow is required."
+            )
+            return None
+
+        for d in active_debts:
+            lock_months = d.get("fixed_lock_months", 0)
+            if month == lock_months and d["balance"] > 0.01:
+                rem_bal = d["balance"]
+                d["balance"] = 0
+                loc_bal += rem_bal
+
+        unlocked_debts = [
+            d
+            for d in active_debts
+            if d["balance"] > 0.01 and month > d.get("fixed_lock_months", 0)
+        ]
+        unlocked_debts = sort_debts(unlocked_debts, strategy)
+
+        loc_available = max_chunk_allowed - loc_bal
+        if loc_available > 500 and unlocked_debts:
+            target_debt = unlocked_debts[0]
+            chunk_amount = min(target_debt["balance"], loc_available)
+
+            if chunk_amount > 0:
+                target_debt["balance"] -= chunk_amount
+                loc_bal += chunk_amount
+
+        loc_interest_month = (loc_bal * loc_rate) / 12.0
+        total_interest_loc += loc_interest_month
+        loc_bal += loc_interest_month
+
+        paydown_to_loc = min(monthly_cash_flow, loc_bal)
+        loc_bal -= paydown_to_loc
+        remaining_cash_flow = monthly_cash_flow - paydown_to_loc
+
+        for d in active_debts:
+            monthly_interest = (d["balance"] * d["rate"]) / 12.0
+            total_interest_debts += monthly_interest
+            d["balance"] += monthly_interest
+
+            min_p = d.get("monthly_payment", d.get("min_pay", 0))
+            pay = min(min_p, d["balance"])
+            d["balance"] -= pay
+
+            if (
+                remaining_cash_flow > 0
+                and unlocked_debts
+                and d == unlocked_debts[0]
+            ):
+                extra = min(remaining_cash_flow, d["balance"])
+                d["balance"] -= extra
+                remaining_cash_flow -= extra
+
+        total_debt_bal = sum(d["balance"] for d in debts)
+
+        logs.append({
+            "Month": month,
+            "Total Debt Balance": round(total_debt_bal, 2),
+            "LOC Balance": round(loc_bal, 2),
+            "Combined Balance": round(total_debt_bal + loc_bal, 2),
+            "Monthly Cash Flow": round(monthly_cash_flow, 2),
+            "Interest Paid (LOC)": round(total_interest_loc, 2),
+            "Interest Paid (Debts)": round(total_interest_debts, 2),
+            "Total Interest Paid": round(
+                total_interest_loc + total_interest_debts, 2
+            ),
+        })
+
+    return pd.DataFrame(logs)
+
+if st.button("🚀 Run Payoff Simulation", type="primary"):
+    if "loans" not in st.session_state or not st.session_state.loans:
+        st.warning("Please add at least one debt or loan item.")
+    else:
+        strategies_to_test = [
+            "Highest Interest First (Avalanche)",
+            "Lowest Balance First (Snowball)",
+            "Highest Payment First (Cash-Flow Boost)",
+        ]
+
+        all_results = {}
+        summary_data = []
+
+        for strat in strategies_to_test:
+            res_df = run_velocity_simulation(
+                st.session_state.loans,
+                total_monthly_income,
+                total_monthly_expenses,
+                loc_limit,
+                loc_interest_rate,
+                loc_current_balance,
+                max_chunk_ratio,
+                safety_buffer,
+                strat,
+            )
+            if res_df is not None and not res_df.empty:
+                all_results[strat] = res_df
+                summary_data.append({
+                    "Strategy": strat,
+                    "Months to Debt-Free": res_df["Month"].max(),
+                    "Total Interest Paid ($)": res_df["Total Interest Paid"].max(),
+                    "Final Monthly Cash Flow ($)": res_df["Monthly Cash Flow"].iloc[-1],
+                })
+
+        summary_df = pd.DataFrame(summary_data)
+
+        if not summary_df.empty:
+            best_row = summary_df.loc[summary_df["Total Interest Paid ($)"].idxmin()]
+            best_strategy = best_row["Strategy"]
+
+            st.success(
+                f"🏆 **Optimal Strategy Auto-Selected:** {best_strategy} "
+                f"(Total Interest: ${best_row['Total Interest Paid ($)']:,.2f} | "
+                f"Timeline: {best_row['Months to Debt-Free']} Months)"
+            )
+
+            st.dataframe(
+                summary_df.style.format({
+                    "Total Interest Paid ($)": "${:,.2f}",
+                    "Final Monthly Cash Flow ($)": "${:,.2f}",
+                }),
+                use_container_width=True,
+            )
+
+            active_strat = (
+                best_strategy
+                if strategy_mode == "Auto-Select Best Strategy (Compare All)"
+                else strategy_mode
+            )
+            results_df = all_results.get(
+                active_strat, list(all_results.values())[0]
+            )
+
+            total_months = results_df["Month"].max()
+            total_interest = results_df["Total Interest Paid"].max()
+
+            m1, m2, m3 = st.columns(3)
+            m1.metric(
+                "Debt-Free Timeline",
+                f"{total_months} Months",
+                f"{round(total_months/12, 1)} Years",
+            )
+            m2.metric("Total Interest Paid", f"${total_interest:,.2f}")
+            m3.metric(
+                "Final Monthly Cash Flow",
+                f"${results_df['Monthly Cash Flow'].iloc[-1]:,.2f}",
+            )
+
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter(
+                    x=results_df["Month"],
+                    y=results_df["Total Debt Balance"],
+                    name="Traditional Debts Balance",
+                    line=dict(color="orange", width=2),
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=results_df["Month"],
+                    y=results_df["LOC Balance"],
+                    name="Line of Credit Balance",
+                    line=dict(color="firebrick", width=2, dash="dash"),
+                )
+            )
+            fig.add_trace(
+                go.Scatter(
+                    x=results_df["Month"],
+                    y=results_df["Combined Balance"],
+                    name="Total Combined Liability",
+                    line=dict(color="green", width=3),
+                )
+            )
+
+            fig.update_layout(
+                title=f"Debt Paydown & LOC Chunking Trajectory ({active_strat})",
+                xaxis_title="Months",
+                yaxis_title="Balance ($)",
+                hovermode="x unified",
+                template="plotly_white",
+            )
+            st.plotly_chart(fig, use_container_width=True)
+
+            with st.expander("🔍 View Month-by-Month Amortization Schedule"):
+                st.dataframe(results_df, use_container_width=True)

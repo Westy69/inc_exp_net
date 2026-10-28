@@ -509,17 +509,17 @@ st.divider()
 # -------------------------------------------------------------------------
 # 3. EXPENSES BY CATEGORY
 # -------------------------------------------------------------------------
-st.header("3. Categorized Expenses")
+st.header("3. Categorized Expenses-Not Including Mortgages or loan repayments")
 st.markdown(
     "Add recurring expenses across specified categories. Amounts are"
     " automatically normalized to a monthly equivalent."
 )
 
 categories = [
-    "House Expenses",
+    "House Hold Expenses",
     "Vehicle Expenses",
-    "Household Costs",
-    "Personal Expenses",
+    "Living Expenses",
+    "Insurances",
 ]
 
 with st.expander("ℹ️ Click here for Category Descriptions & Examples"):
@@ -529,23 +529,23 @@ with st.expander("ℹ️ Click here for Category Descriptions & Examples"):
 if "expenses" not in st.session_state:
   st.session_state.expenses = [
       {
-          "category": "House Expenses",
-          "name": "Rates & Insurances, Maintenance Costs etc",
+          "category": "ouse Hold Expenses",
+          "name": "EG. Rates & Insurances, Maintenance Costs etc",
           "amount": 400.0,
           "frequency": "Monthly",
       },
       {
           "category": "Vehicle Expenses",
           "name": (
-              "Vehicle Payments, Insurances, Fuel, Registration, Tires, Warrent"
+              "EG. Insurances, Fuel, Registration, Tires, Warrent"
               " Of Fitness, Maintenance/Servicing"
           ),
           "amount": 600.0,
           "frequency": "Monthly",
       },
       {
-          "category": "Household Costs",
-          "name": "Groceries, Power, Gas, Internet & Subs",
+          "category": "Living Expenses",
+          "name": "Groceries, Entertainment, Power, Gas, Internet, Netflix, Disney ETC",
           "amount": 1500.0,
           "frequency": "Monthly",
       },

@@ -33,23 +33,22 @@ st.markdown(
 # CATEGORY GUIDELINES / HELPER DICTIONARY
 # -------------------------------------------------------------------------
 category_help = {
-    "House Hold Expenses": (
-        "Includes property rates, Water Rates, Regional Rates, Ongoing home"
+    "House Expenses": (
+        "Includes property rates, house and contents insurances, ongoing home"
         " maintenance, repairs, body corporate fees, etc."
     ),
     "Vehicle Expenses": (
-        "Vehicle Insurances, fuel," warrant of fitness (WOF), registration, tires, and scheduled"
+        "Includes vehicle loan or lease payments, vehicle insurances, fuel,"
+        " warrant of fitness (WOF), registration, tires, and scheduled"
         " servicing/maintenance."
     ),
     "Household Costs": (
-        "Includes Supermarket groceries, power/electricity, gas, internet, mobile"
-        "phone plans, and recurring household subscriptions (Netflix, Spotify, etc.)." 
-        "Entertainment, lifestyle activities, takeaways, bakery food,"
-        " coffees, restaurant dining, personal care, and clothing"
-    
+        "Includes supermarket groceries, power/electricity, gas, internet, home"
+        " phone, and recurring household subscriptions (Netflix, Spotify, etc.)."
     ),
-    "Insurances": (
-        "Life, House, Contents etc."
+    "Personal Expenses": (
+        "Includes entertainment, lifestyle activities, takeaways, bakery food,"
+        " coffees, restaurant dining, personal care, and clothing."
     ),
 }
 
@@ -530,29 +529,31 @@ with st.expander("ℹ️ Click here for Category Descriptions & Examples"):
 if "expenses" not in st.session_state:
   st.session_state.expenses = [
       {
-          "category": "House Hold Expenses",
-          "name": "add your first expense here",
+          "category": "House Expenses",
+          "name": "Council Rates, Regional Rates, Water Rates,Maintenance Costs etc",
           "amount": 400.0,
           "frequency": "Monthly",
       },
       {
           "category": "Vehicle Expenses",
           "name": (
-              "Add your first expense here"
+              "Vehicle Payments, Insurances, Fuel, Registration, Tires, Warrent"
+              " Of Fitness, Maintenance/Servicing"
           ),
           "amount": 600.0,
           "frequency": "Monthly",
       },
       {
           "category": "Living Expenses",
-          "name": "Add your first expense here",
+          "name": "Food, Power, Gas, Internet & Subs",
           "amount": 1500.0,
           "frequency": "Monthly",
       },
       {
-          "category": "Insurances",
-          "name": "Add your first expense here",
-             
+          "category": "Personal Expenses",
+          "name": (
+              "Entertainment & Lifestyle, Takeaways, Bakery Food, Coffees,"
+              " Restaurants etc"
           ),
           "amount": 500.0,
           "frequency": "Monthly",

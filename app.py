@@ -62,13 +62,15 @@ st.sidebar.markdown(
 )
 
 uploaded_file = st.sidebar.file_uploader(
-    "Upload Saved Data (JSON)", type=["json"]
+    "Upload Saved Data (JSON)", type=["json"], key="json_uploader"
 )
+
 if uploaded_file is not None:
   try:
     file_bytes = uploaded_file.getvalue()
     imported_data = json.loads(file_bytes.decode("utf-8"))
     
+    # Only update and rerun if it's a new upload or data isn't loaded yet
     if "incomes" in imported_data:
       st.session_state.incomes = imported_data["incomes"]
     if "loans" in imported_data:
@@ -77,7 +79,6 @@ if uploaded_file is not None:
       st.session_state.expenses = imported_data["expenses"]
       
     st.sidebar.success("Data successfully loaded!")
-    st.rerun()
   except Exception as e:
     st.sidebar.error(f"Error reading file: {e}")
 
@@ -333,7 +334,9 @@ for i, inc in enumerate(st.session_state.incomes):
     freq = st.selectbox(
         "Frequency",
         list(freq_multipliers.keys()),
-        index=list(freq_multipliers.keys()).index(inc["frequency"]),
+        index=list(freq_multipliers.keys()).index(inc["frequency"])
+        if inc["frequency"] in freq_multipliers
+        else 0,
         key=f"inc_freq_{i}",
         label_visibility="collapsed",
     )
@@ -621,7 +624,9 @@ for i, exp in enumerate(st.session_state.expenses):
     efreq = st.selectbox(
         "Frequency",
         list(freq_multipliers.keys()),
-        index=list(freq_multipliers.keys()).index(exp["frequency"]),
+        index=list(freq_multipliers.keys()).index(exp["frequency"])
+        if exp["frequency"] in freq_multipliers
+        else 0,
         key=f"exp_freq_{i}",
         label_visibility="collapsed",
     )
@@ -701,137 +706,4 @@ if st.session_state.expenses or st.session_state.incomes or st.session_state.loa
           ),
       }
   )
-  cat_df_display = cat_df.copy()
-  cat_df_display["Monthly Cost ($)"] = cat_df_display["Monthly Cost ($)"].map(
-      "${:,.2f}".format
-  )
-  cat_df_display["% of Total Expenses"] = cat_df_display[
-      "% of Total Expenses"
-  ].map("{:.1f}%".format)
-  st.table(cat_df_display)
-
-  if st.session_state.loans:
-    st.subheader("Loans & Amortization Breakdown")
-    loan_display_df = pd.DataFrame(st.session_state.loans)
-    loan_display_df.columns = [
-        "Loan Name",
-        "Balance",
-        "Rate (%)",
-        "Type",
-        "Term (Yrs)",
-        "Monthly Payment",
-        "Principal Component",
-        "Interest Component",
-    ]
-    for col in [
-        "Balance",
-        "Monthly Payment",
-        "Principal Component",
-        "Interest Component",
-    ]:
-      loan_display_df[col] = loan_display_df[col].map("${:,.2f}".format)
-    loan_display_df["Rate (%)"] = loan_display_df["Rate (%)"].map(
-        lambda val: f"{val:.2f}%"
-    )
-    st.dataframe(loan_display_df, use_container_width=True)
-
-  st.subheader("Detailed Expense Items")
-  if not exp_df.empty:
-    display_df = exp_df[["category", "name", "amount", "frequency", "monthly"]].copy()
-    display_df.columns = [
-        "Category",
-        "Expense Item",
-        "Amount",
-        "Frequency",
-        "Monthly Equivalent",
-    ]
-    display_df["Amount"] = display_df["Amount"].map("${:,.2f}".format)
-    display_df["Monthly Equivalent"] = display_df["Monthly Equivalent"].map(
-        "${:,.2f}".format
-    )
-    st.dataframe(display_df, use_container_width=True)
-
-  # -------------------------------------------------------------------------
-  # EXPORT OPTIONS (JSON Save, CSV, PDF)
-  # -------------------------------------------------------------------------
-  st.divider()
-  st.subheader("Export Options")
-
-  col_json, col_csv, col_pdf = st.columns(3)
-
-  with col_json:
-    session_data_payload = {
-        "incomes": st.session_state.incomes,
-        "loans": st.session_state.loans,
-        "expenses": st.session_state.expenses,
-    }
-    json_string = json.dumps(session_data_payload, indent=4)
-
-    st.download_button(
-        label="💾 Save/Export Session (JSON)",
-        data=json_string,
-        file_name="financial_analyzer_backup.json",
-        mime="application/json",
-        use_container_width=True,
-    )
-
-  with col_csv:
-    csv_buffer = io.StringIO()
-    csv_buffer.write("=== SUMMARY ===\n")
-    csv_buffer.write(f"Total Monthly Income,{total_monthly_income}\n")
-    csv_buffer.write(f"Total Monthly Expenses,{total_all_expenses}\n")
-    csv_buffer.write(f"Total Monthly Debt,{total_loan_monthly}\n")
-    csv_buffer.write(f"Net Surplus Funds,{net_surplus}\n\n")
-
-    csv_buffer.write("=== INCOME STREAMS ===\n")
-    inc_export_df = pd.DataFrame(st.session_state.incomes)
-    if not inc_export_df.empty:
-      inc_export_df.to_csv(csv_buffer, index=False)
-
-    csv_buffer.write("\n=== LOANS & DEBTS ===\n")
-    loan_export_df = pd.DataFrame(st.session_state.loans)
-    if not loan_export_df.empty:
-      loan_export_df.to_csv(csv_buffer, index=False)
-
-    csv_buffer.write("\n=== EXPENSES ===\n")
-    if not exp_df.empty:
-      exp_df.to_csv(csv_buffer, index=False)
-
-    st.download_button(
-        label="📥 Download as CSV",
-        data=csv_buffer.getvalue(),
-        file_name="income_and_expense_report.csv",
-        mime="text/csv",
-        use_container_width=True,
-    )
-
-  with col_pdf:
-    if REPORTLAB_AVAILABLE:
-      summary_metrics = {
-          "income": total_monthly_income,
-          "expenses": total_all_expenses,
-          "surplus": net_surplus,
-      }
-      pdf_buffer = create_pdf(
-          st.session_state.incomes,
-          st.session_state.expenses,
-          st.session_state.loans,
-          summary_metrics,
-          cat_df_display,
-          total_loan_monthly,
-      )
-      st.download_button(
-          label="📄 Download Report as PDF",
-          data=pdf_buffer,
-          file_name="income_and_expense_report.pdf",
-          mime="application/pdf",
-          use_container_width=True,
-      )
-    else:
-      st.warning(
-          "PDF Export unavailable: Please run `pip install reportlab` or add"
-          " `reportlab` to requirements.txt"
-      )
-
-else:
-  st.info("Add some income streams or expenses above to view the complete breakdown.")
+  cat_df_

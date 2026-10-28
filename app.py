@@ -46,7 +46,7 @@ category_help = {
         "Phone, & recurring household subscriptions (Netflix, Spotify, etc.)."
     ),
     "Insurances": (
-        "Life, Loss of Income, Contents, House."
+        "Life, Loss of Income, Contents, House Cover etc."
     ),
 }
 

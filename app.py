@@ -1,6 +1,4 @@
 import io
-import json
-import uuid
 import pandas as pd
 import streamlit as st
 
@@ -36,109 +34,58 @@ st.markdown(
 # -------------------------------------------------------------------------
 category_help = {
     "House Hold Expenses": (
-        "Includes property rates, ongoing home maintenance, repairs, body"
-        " corporate fees, etc."
+        "Includes property rates, ongoing home"
+        " maintenance, repairs, body corporate fees, etc."
     ),
     "Vehicle Expenses": (
-        "Vehicle insurances, fuel, Warrant of fitness (WOF),"
-        " Registration/Licencing, Tires, and scheduled"
+        "Vehicle insurances, fuel, Warrant of fitness (WOF), Registration/Licencing, Tires, and scheduled"
         " servicing/maintenance, Unplanned Repairs."
     ),
     "Living Expenses": (
-        "Includes supermarket groceries, power/Electricity, gas, internet,"
-        " Mobile Phone, & recurring household subscriptions (Netflix, Spotify,"
-        " etc.)."
+        "Includes supermarket groceries, power/lectricity, gas, internet, Mobile"
+        "Phone, & recurring household subscriptions (Netflix, Spotify, etc.)."
     ),
-    "Insurances": "Life, Loss of Income, Contents, House Cover etc.",
-}
-
-freq_multipliers = {
-    "Weekly": 52 / 12,
-    "Bi-Weekly": 26 / 12,
-    "Monthly": 1.0,
-    "Annual": 1 / 12,
+    "Insurances": (
+        "Life, Loss of Income, Contents, House."
+    ),
 }
 
 # -------------------------------------------------------------------------
-# SESSION STATE INITIALIZATION (Using UUIDs for safety)
+# GLOBAL ACTIONS (Clear Amounts, Full Reset)
 # -------------------------------------------------------------------------
-if "incomes" not in st.session_state:
-  st.session_state.incomes = [
-      {
-          "id": str(uuid.uuid4()),
-          "name": "Party 1 - Primary Salary",
-          "amount": 6000.0,
-          "frequency": "Monthly",
-      },
-      {
-          "id": str(uuid.uuid4()),
-          "name": "Party 2 - Salary",
-          "amount": 3000.0,
-          "frequency": "Monthly",
-      },
-  ]
-
-if "loans" not in st.session_state:
-  st.session_state.loans = [{
-      "id": str(uuid.uuid4()),
-      "name": "Home Mortgage",
-      "balance": 400000.0,
-      "rate": 6.5,
-      "type": "P&I",
-      "term": 25,
-  }]
-
-if "expenses" not in st.session_state:
-  st.session_state.expenses = [
-      {
-          "id": str(uuid.uuid4()),
-          "category": "House Hold Expenses",
-          "name": "House Insurance, Council Rates, Maintenance",
-          "amount": 400.0,
-          "frequency": "Monthly",
-      },
-      {
-          "id": str(uuid.uuid4()),
-          "category": "Vehicle Expenses",
-          "name": "Insurances, Fuel, Registration, Servicing",
-          "amount": 600.0,
-          "frequency": "Monthly",
-      },
-      {
-          "id": str(uuid.uuid4()),
-          "category": "Living Expenses",
-          "name": "Food, Power, Internet, Subscriptions",
-          "amount": 1500.0,
-          "frequency": "Monthly",
-      },
-      {
-          "id": str(uuid.uuid4()),
-          "category": "Insurances",
-          "name": "Life, Medical, Contents Cover",
-          "amount": 500.0,
-          "frequency": "Monthly",
-      },
-  ]
-
-
-# -------------------------------------------------------------------------
-# GLOBAL ACTIONS (Clear Amounts)
-# -------------------------------------------------------------------------
-st.sidebar.header("📁 Session Controls")
+col_act1, col_act2, col_act3 = st.columns([1.5, 1.5, 4])
 
 
 def clear_amounts():
-  for inc in st.session_state.incomes:
-    inc["amount"] = 0.0
-  for loan in st.session_state.loans:
-    loan["balance"] = 0.0
-    loan["rate"] = 0.0
-  for exp in st.session_state.expenses:
-    exp["amount"] = 0.0
+  """Zeroes out all numeric amount inputs across session state and lists."""
+  for key in list(st.session_state.keys()):
+    if key.startswith("inc_amt_") or key.startswith("exp_amt_"):
+      st.session_state[key] = 0.0
+    elif key.startswith("loan_bal_") or key.startswith("loan_rate_"):
+      st.session_state[key] = 0.0
+
+  if "incomes" in st.session_state:
+    for item in st.session_state.incomes:
+      item["amount"] = 0.0
+
+  if "expenses" in st.session_state:
+    for item in st.session_state.expenses:
+      item["amount"] = 0.0
+
+  if "loans" in st.session_state:
+    for item in st.session_state.loans:
+      item["balance"] = 0.0
+      item["rate"] = 0.0
 
 
-st.sidebar.button("🧹 Clear / Zero Amounts", on_click=clear_amounts, use_container_width=True)
+def reset_form():
+  """Completely resets all session state keys."""
+  for key in list(st.session_state.keys()):
+    del st.session_state[key]
 
+
+with col_act1:
+  st.button("🧹 Clear / Zero Amounts", on_click=clear_amounts, use_container_width=True)
 
 # -------------------------------------------------------------------------
 # PDF GENERATION FUNCTION
@@ -175,9 +122,11 @@ def create_pdf(
   )
   normal_style = styles["Normal"]
 
+  # Title
   elements.append(Paragraph("Dynamic Income & Expense Report", title_style))
   elements.append(Spacer(1, 10))
 
+  # Summary Table
   elements.append(Paragraph("1. Financial Summary", heading_style))
   summary_data = [
       ["Metric", "Monthly Value"],
@@ -200,15 +149,15 @@ def create_pdf(
   elements.append(t_summary)
   elements.append(Spacer(1, 15))
 
+  # Income Table
   elements.append(Paragraph("2. Net Income Streams", heading_style))
   inc_data = [["Source Name", "Amount", "Frequency", "Monthly Equivalent"]]
   for inc in incomes:
-    monthly = inc["amount"] * freq_multipliers[inc["frequency"]]
     inc_data.append([
         inc["name"],
         f"${inc['amount']:,.2f}",
         inc["frequency"],
-        f"${monthly:,.2f}",
+        f"${inc['monthly']:,.2f}",
     ])
   t_inc = Table(inc_data, colWidths=[200, 100, 100, 100])
   t_inc.setStyle(
@@ -223,6 +172,7 @@ def create_pdf(
   elements.append(t_inc)
   elements.append(Spacer(1, 15))
 
+  # Loans & Debt Table
   if loans:
     elements.append(
         Paragraph("3. Debts & Loans Amortization Breakdown", heading_style)
@@ -238,34 +188,15 @@ def create_pdf(
         "Interest",
     ]]
     for l in loans:
-      monthly_rate = (l["rate"] / 100.0) / 12.0
-      total_months = int(l["term"] * 12)
-      monthly_interest = l["balance"] * monthly_rate
-      if l["type"] == "P&I":
-        if monthly_rate > 0 and total_months > 0:
-          monthly_payment = (
-              l["balance"]
-              * (monthly_rate * (1 + monthly_rate) ** total_months)
-              / ((1 + monthly_rate) ** total_months - 1)
-          )
-        else:
-          monthly_payment = (
-              l["balance"] / total_months if total_months > 0 else 0.0
-          )
-        monthly_principal = monthly_payment - monthly_interest
-      else:
-        monthly_payment = monthly_interest
-        monthly_principal = 0.0
-
       loan_data.append([
           l["name"],
           f"${l['balance']:,.2f}",
           f"{l['rate']:.2f}%",
           l["type"],
           str(l["term"]),
-          f"${monthly_payment:,.2f}",
-          f"${monthly_principal:,.2f}",
-          f"${monthly_interest:,.2f}",
+          f"${l['monthly_payment']:,.2f}",
+          f"${l['monthly_principal']:,.2f}",
+          f"${l['monthly_interest']:,.2f}",
       ])
     t_loan = Table(loan_data, colWidths=[110, 60, 50, 45, 55, 65, 60, 55])
     t_loan.setStyle(
@@ -280,6 +211,7 @@ def create_pdf(
     elements.append(t_loan)
     elements.append(Spacer(1, 15))
 
+  # Category Breakdown
   elements.append(Paragraph("4. Expense Breakdown by Category", heading_style))
   cat_data = [["Category", "Monthly Cost", "% of Total Expenses"]]
   for _, row in cat_summary_df.iterrows():
@@ -299,18 +231,18 @@ def create_pdf(
   elements.append(t_cat)
   elements.append(Spacer(1, 15))
 
+  # Detailed Expenses
   elements.append(Paragraph("5. Detailed Expense Items", heading_style))
   exp_data = [
       ["Category", "Expense Name", "Amount", "Frequency", "Monthly Equiv."]
   ]
   for exp in expenses:
-    monthly = exp["amount"] * freq_multipliers[exp["frequency"]]
     exp_data.append([
         exp["category"],
         Paragraph(exp["name"], normal_style),
         f"${exp['amount']:,.2f}",
         exp["frequency"],
-        f"${monthly:,.2f}",
+        f"${exp['monthly']:,.2f}",
     ])
   t_exp = Table(exp_data, colWidths=[110, 190, 65, 65, 70])
   t_exp.setStyle(
@@ -334,7 +266,16 @@ def create_pdf(
 # 1. NET INCOMES FROM MULTIPLE PARTIES
 # -------------------------------------------------------------------------
 st.header("1. Net Income Streams")
-st.markdown("Add multiple net income sources and set their payment frequency.")
+st.markdown(
+    "Add multiple net income sources (e.g., Party 1 Salary, Party 2 Side Hustle)"
+    " and set their payment frequency."
+)
+
+if "incomes" not in st.session_state:
+  st.session_state.incomes = [
+      {"name": "Party 1 - Primary Salary", "amount": 6000.0, "frequency": "Monthly"},
+      {"name": "Party 2 - Salary", "amount": 3000.0, "frequency": "Monthly"},
+  ]
 
 income_cols = st.columns([3, 2, 2, 1])
 with income_cols[0]:
@@ -346,58 +287,63 @@ with income_cols[2]:
 with income_cols[3]:
   st.markdown("**Action**")
 
-to_remove_inc = None
-for inc in st.session_state.incomes:
+freq_multipliers = {
+    "Weekly": 52 / 12,
+    "Bi-Weekly": 26 / 12,
+    "Monthly": 1.0,
+    "Annual": 1 / 12,
+}
+
+updated_incomes = []
+for i, inc in enumerate(st.session_state.incomes):
   c1, c2, c3, c4 = st.columns([3, 2, 2, 1])
   with c1:
-    inc["name"] = st.text_input(
-        "Name", value=inc["name"], key=f"inc_name_{inc['id']}", label_visibility="collapsed"
+    name = st.text_input(
+        "Name",
+        value=inc["name"],
+        key=f"inc_name_{i}",
+        label_visibility="collapsed",
     )
   with c2:
-    inc["amount"] = st.number_input(
+    amount = st.number_input(
         "Amount",
         min_value=0.0,
         step=100.0,
         value=float(inc["amount"]),
-        key=f"inc_amt_{inc['id']}",
+        key=f"inc_amt_{i}",
         label_visibility="collapsed",
     )
   with c3:
-    current_freq = (
-        inc["frequency"]
-        if inc["frequency"] in freq_multipliers
-        else "Monthly"
-    )
-    inc["frequency"] = st.selectbox(
+    freq = st.selectbox(
         "Frequency",
         list(freq_multipliers.keys()),
-        index=list(freq_multipliers.keys()).index(current_freq),
-        key=f"inc_freq_{inc['id']}",
+        index=list(freq_multipliers.keys()).index(inc["frequency"]),
+        key=f"inc_freq_{i}",
         label_visibility="collapsed",
     )
   with c4:
-    if st.button("❌", key=f"inc_rem_{inc['id']}"):
-      to_remove_inc = inc["id"]
+    remove = st.button("❌", key=f"inc_rem_{i}")
 
-if to_remove_inc:
-  st.session_state.incomes = [
-      i for i in st.session_state.incomes if i["id"] != to_remove_inc
-  ]
-  st.rerun()
+  if not remove:
+    monthly_equiv = amount * freq_multipliers[freq]
+    updated_incomes.append(
+        {
+            "name": name,
+            "amount": amount,
+            "frequency": freq,
+            "monthly": monthly_equiv,
+        }
+    )
+
+st.session_state.incomes = updated_incomes
 
 if st.button("➕ Add Income Stream"):
-  st.session_state.incomes.append({
-      "id": str(uuid.uuid4()),
-      "name": "New Income",
-      "amount": 0.0,
-      "frequency": "Monthly",
-  })
+  st.session_state.incomes.append(
+      {"name": "New Income", "amount": 0.0, "frequency": "Monthly"}
+  )
   st.rerun()
 
-total_monthly_income = sum(
-    item["amount"] * freq_multipliers[item["frequency"]]
-    for item in st.session_state.incomes
-)
+total_monthly_income = sum(item["monthly"] for item in st.session_state.incomes)
 st.metric("Total Monthly Net Income", f"${total_monthly_income:,.2f}")
 
 st.divider()
@@ -408,8 +354,17 @@ st.divider()
 st.header("2. Debts & Loans Amortization")
 st.markdown(
     "Add liabilities, select repayment type (P&I or INT), set term and rate"
-    " to auto-calculate monthly payments."
+    " to auto-calculate monthly payments, principal, and interest splits."
 )
+
+if "loans" not in st.session_state:
+  st.session_state.loans = [{
+      "name": "Home Mortgage",
+      "balance": 400000.0,
+      "rate": 6.5,
+      "type": "P&I",
+      "term": 25,
+  }]
 
 loan_cols = st.columns([2.5, 1.8, 1.2, 1.2, 1.2, 1.5, 1.2, 1.2, 0.8])
 with loan_cols[0]:
@@ -431,14 +386,14 @@ with loan_cols[7]:
 with loan_cols[8]:
   st.markdown("**Action**")
 
+updated_loans = []
 total_loan_monthly = 0.0
 total_loan_principal = 0.0
 total_loan_interest = 0.0
-loan_types = ["P&I", "INT"]
-to_remove_loan = None
-processed_loans = []
 
-for loan in st.session_state.loans:
+loan_types = ["P&I", "INT"]
+
+for i, loan in enumerate(st.session_state.loans):
   lc1, lc2, lc3, lc4, lc5, lc6, lc7, lc8, lc9 = st.columns(
       [2.5, 1.8, 1.2, 1.2, 1.2, 1.5, 1.2, 1.2, 0.8]
   )
@@ -446,7 +401,7 @@ for loan in st.session_state.loans:
     lname = st.text_input(
         "Loan Name",
         value=loan["name"],
-        key=f"loan_name_{loan['id']}",
+        key=f"loan_name_{i}",
         label_visibility="collapsed",
     )
   with lc2:
@@ -455,7 +410,7 @@ for loan in st.session_state.loans:
         min_value=0.0,
         step=1000.0,
         value=float(loan["balance"]),
-        key=f"loan_bal_{loan['id']}",
+        key=f"loan_bal_{i}",
         label_visibility="collapsed",
     )
   with lc3:
@@ -464,20 +419,17 @@ for loan in st.session_state.loans:
         min_value=0.0,
         step=0.1,
         value=float(loan["rate"]),
-        key=f"loan_rate_{loan['id']}",
+        key=f"loan_rate_{i}",
         label_visibility="collapsed",
     )
   with lc4:
-    ltype_idx = (
-        loan_types.index(loan["type"])
-        if loan["type"] in loan_types
-        else 0
-    )
     ltype = st.selectbox(
         "Type",
         loan_types,
-        index=ltype_idx,
-        key=f"loan_type_{loan['id']}",
+        index=loan_types.index(loan["type"])
+        if loan["type"] in loan_types
+        else 0,
+        key=f"loan_type_{i}",
         label_visibility="collapsed",
     )
   with lc5:
@@ -487,10 +439,11 @@ for loan in st.session_state.loans:
         max_value=50,
         step=1,
         value=int(loan["term"]),
-        key=f"loan_term_{loan['id']}",
+        key=f"loan_term_{i}",
         label_visibility="collapsed",
     )
 
+  # Calculations
   monthly_rate = (lrate / 100.0) / 12.0
   total_months = int(lterm * 12)
   monthly_interest = lbal * monthly_rate
@@ -505,7 +458,7 @@ for loan in st.session_state.loans:
     else:
       monthly_payment = lbal / total_months if total_months > 0 else 0.0
     monthly_principal = monthly_payment - monthly_interest
-  else:
+  else:  # Interest Only
     monthly_payment = monthly_interest
     monthly_principal = 0.0
 
@@ -517,36 +470,28 @@ for loan in st.session_state.loans:
     st.markdown(f"${monthly_interest:,.2f}")
 
   with lc9:
-    if st.button("❌", key=f"loan_rem_{loan['id']}"):
-      to_remove_loan = loan["id"]
+    lrem = st.button("❌", key=f"loan_rem_{i}")
 
-  total_loan_monthly += monthly_payment
-  total_loan_principal += monthly_principal
-  total_loan_interest += monthly_interest
+  if not lrem:
+    total_loan_monthly += monthly_payment
+    total_loan_principal += monthly_principal
+    total_loan_interest += monthly_interest
 
-  processed_loans.append({
-      "id": loan["id"],
-      "name": lname,
-      "balance": lbal,
-      "rate": lrate,
-      "type": ltype,
-      "term": lterm,
-      "monthly_payment": monthly_payment,
-      "monthly_principal": monthly_principal,
-      "monthly_interest": monthly_interest,
-  })
+    updated_loans.append({
+        "name": lname,
+        "balance": lbal,
+        "rate": lrate,
+        "type": ltype,
+        "term": lterm,
+        "monthly_payment": monthly_payment,
+        "monthly_principal": monthly_principal,
+        "monthly_interest": monthly_interest,
+    })
 
-st.session_state.loans = processed_loans
-
-if to_remove_loan:
-  st.session_state.loans = [
-      l for l in st.session_state.loans if l["id"] != to_remove_loan
-  ]
-  st.rerun()
+st.session_state.loans = updated_loans
 
 if st.button("➕ Add Loan / Debt"):
   st.session_state.loans.append({
-      "id": str(uuid.uuid4()),
       "name": "New Loan",
       "balance": 10000.0,
       "rate": 5.0,
@@ -562,8 +507,11 @@ st.divider()
 # -------------------------------------------------------------------------
 # 3. EXPENSES BY CATEGORY
 # -------------------------------------------------------------------------
-st.header("3. Categorized Expenses")
-st.markdown("Add recurring expenses across specified categories.")
+st.header("3. Categorized Expenses-Not Including Mortgages or loan repayments")
+st.markdown(
+    "Add recurring expenses across specified categories. Amounts are"
+    " automatically normalized to a monthly equivalent."
+)
 
 categories = [
     "House Hold Expenses",
@@ -575,6 +523,39 @@ categories = [
 with st.expander("ℹ️ Click here for Category Descriptions & Examples"):
   for cat_name, description in category_help.items():
     st.markdown(f"**{cat_name}:** {description}")
+
+if "expenses" not in st.session_state:
+  st.session_state.expenses = [
+      {
+          "category": "House Hold Expenses",
+          "name": "House Insurance, Council Rates, Regional Rates, Water Rates,Maintenance Costs etc",
+          "amount": 400.0,
+          "frequency": "Monthly",
+      },
+      {
+          "category": "Vehicle Expenses",
+          "name": (
+              "Insurances, Fuel, Registration, Tires, Warrent"
+              " Of Fitness, Maintenance/Servicing"
+          ),
+          "amount": 600.0,
+          "frequency": "Monthly",
+      },
+      {
+          "category": "Living Expenses",
+          "name": "Food, Bakery, Entertainment, Personal care, Medical Costs, Power, Gas, Internet Netflix etc",
+          "amount": 1500.0,
+          "frequency": "Monthly",
+      },
+      {
+          "category": "Insurances",
+          "name": (
+              "Life, Medical, Contents,Loss of Income etc"
+          ),
+          "amount": 500.0,
+          "frequency": "Monthly",
+      },
+  ]
 
 exp_cols = st.columns([2, 3, 2, 2, 1])
 with exp_cols[0]:
@@ -588,29 +569,24 @@ with exp_cols[3]:
 with exp_cols[4]:
   st.markdown("**Action**")
 
-to_remove_exp = None
-processed_expenses = []
-
-for exp in st.session_state.expenses:
+updated_expenses = []
+for i, exp in enumerate(st.session_state.expenses):
   c1, c2, c3, c4, c5 = st.columns([2, 3, 2, 2, 1])
   with c1:
-    cat_idx = (
-        categories.index(exp["category"])
-        if exp["category"] in categories
-        else 0
-    )
     cat = st.selectbox(
         "Category",
         categories,
-        index=cat_idx,
-        key=f"exp_cat_{exp['id']}",
+        index=categories.index(exp["category"])
+        if exp["category"] in categories
+        else 0,
+        key=f"exp_cat_{i}",
         label_visibility="collapsed",
     )
   with c2:
     ename = st.text_input(
         "Name",
         value=exp["name"],
-        key=f"exp_name_{exp['id']}",
+        key=f"exp_name_{i}",
         label_visibility="collapsed",
     )
   with c3:
@@ -619,52 +595,43 @@ for exp in st.session_state.expenses:
         min_value=0.0,
         step=50.0,
         value=float(exp["amount"]),
-        key=f"exp_amt_{exp['id']}",
+        key=f"exp_amt_{i}",
         label_visibility="collapsed",
     )
   with c4:
-    efreq_idx = (
-        list(freq_multipliers.keys()).index(exp["frequency"])
-        if exp["frequency"] in freq_multipliers
-        else 2
-    )
     efreq = st.selectbox(
         "Frequency",
         list(freq_multipliers.keys()),
-        index=efreq_idx,
-        key=f"exp_freq_{exp['id']}",
+        index=list(freq_multipliers.keys()).index(exp["frequency"]),
+        key=f"exp_freq_{i}",
         label_visibility="collapsed",
     )
   with c5:
-    if st.button("❌", key=f"exp_rem_{exp['id']}"):
-      to_remove_exp = exp["id"]
+    erem = st.button("❌", key=f"exp_rem_{i}")
 
-  monthly_equiv = eamt * freq_multipliers[efreq]
-  processed_expenses.append({
-      "id": exp["id"],
-      "category": cat,
-      "name": ename,
-      "amount": eamt,
-      "frequency": efreq,
-      "monthly": monthly_equiv,
-  })
+  if not erem:
+    monthly_equiv = eamt * freq_multipliers[efreq]
+    updated_expenses.append(
+        {
+            "category": cat,
+            "name": ename,
+            "amount": eamt,
+            "frequency": efreq,
+            "monthly": monthly_equiv,
+        }
+    )
 
-st.session_state.expenses = processed_expenses
-
-if to_remove_exp:
-  st.session_state.expenses = [
-      e for e in st.session_state.expenses if e["id"] != to_remove_exp
-  ]
-  st.rerun()
+st.session_state.expenses = updated_expenses
 
 if st.button("➕ Add Expense"):
-  st.session_state.expenses.append({
-      "id": str(uuid.uuid4()),
-      "category": "House Hold Expenses",
-      "name": "New Expense",
-      "amount": 0.0,
-      "frequency": "Monthly",
-  })
+  st.session_state.expenses.append(
+      {
+          "category": "Household Costs",
+          "name": "New Expense",
+          "amount": 0.0,
+          "frequency": "Monthly",
+      }
+  )
   st.rerun()
 
 # -------------------------------------------------------------------------
@@ -673,175 +640,163 @@ if st.button("➕ Add Expense"):
 st.divider()
 st.header("4. Net Surplus & Category Breakdown")
 
-exp_df = (
-    pd.DataFrame(st.session_state.expenses)
-    if st.session_state.expenses
-    else pd.DataFrame(columns=["category", "name", "amount", "frequency", "monthly"])
-)
-total_monthly_expenses = exp_df["monthly"].sum() if not exp_df.empty else 0.0
-total_all_expenses = total_monthly_expenses + total_loan_monthly
+if st.session_state.expenses or st.session_state.incomes or st.session_state.loans:
+  exp_df = (
+      pd.DataFrame(st.session_state.expenses)
+      if st.session_state.expenses
+      else pd.DataFrame(columns=["category", "name", "amount", "frequency", "monthly"])
+  )
+  total_monthly_expenses = exp_df["monthly"].sum() if not exp_df.empty else 0.0
+  total_all_expenses = total_monthly_expenses + total_loan_monthly
 
-cat_summary = (
-    exp_df.groupby("category")["monthly"].sum().reindex(categories).fillna(0)
-    if not exp_df.empty
-    else pd.Series(0, index=categories)
-)
-
-col1, col2, col3, col4 = st.columns(4)
-with col1:
-  st.metric("Total Monthly Income", f"${total_monthly_income:,.2f}")
-with col2:
-  st.metric("Total Monthly Expenses", f"${total_all_expenses:,.2f}")
-with col3:
-  st.metric("Total Monthly Debt", f"${total_loan_monthly:,.2f}")
-with col4:
-  net_surplus = total_monthly_income - total_all_expenses
-  st.metric(
-      "Net Surplus Funds",
-      f"${net_surplus:,.2f}",
-      delta=f"${net_surplus:,.2f}",
+  cat_summary = (
+      exp_df.groupby("category")["monthly"].sum().reindex(categories).fillna(0)
+      if not exp_df.empty
+      else pd.Series(0, index=categories)
   )
 
-st.subheader("Expense Breakdown by Category (Monthly)")
-cat_df = pd.DataFrame(
-    {
-        "Category": cat_summary.index,
-        "Monthly Cost ($)": cat_summary.values,
-        "% of Total Expenses": (
-            (cat_summary.values / total_all_expenses * 100)
-            if total_all_expenses > 0
-            else 0
-        ),
-    }
-)
-cat_df_display = cat_df.copy()
-cat_df_display["Monthly Cost ($)"] = cat_df_display["Monthly Cost ($)"].map(
-    "${:,.2f}".format
-)
-cat_df_display["% of Total Expenses"] = cat_df_display[
-    "% of Total Expenses"
-].map("{:.1f}%".format)
-st.table(cat_df_display)
+  col1, col2, col3, col4 = st.columns(4)
+  with col1:
+    st.metric("Total Monthly Income", f"${total_monthly_income:,.2f}")
+  with col2:
+    st.metric("Total Monthly Expenses", f"${total_all_expenses:,.2f}")
+  with col3:
+    st.metric("Total Monthly Debt", f"${total_loan_monthly:,.2f}")
+  with col4:
+    net_surplus = total_monthly_income - total_all_expenses
+    st.metric(
+        "Net Surplus Funds",
+        f"${net_surplus:,.2f}",
+        delta=f"${net_surplus:,.2f}",
+    )
 
-if st.session_state.loans:
-  st.subheader("Loans & Amortization Breakdown")
-  loan_display_df = pd.DataFrame(st.session_state.loans)[
-      [
-          "name",
-          "balance",
-          "rate",
-          "type",
-          "term",
-          "monthly_payment",
-          "monthly_principal",
-          "monthly_interest",
-      ]
-  ]
-  loan_display_df.columns = [
-      "Loan Name",
-      "Balance",
-      "Rate (%)",
-      "Type",
-      "Term (Yrs)",
-      "Monthly Payment",
-      "Principal Component",
-      "Interest Component",
-  ]
-  for col in [
-      "Balance",
-      "Monthly Payment",
-      "Principal Component",
-      "Interest Component",
-  ]:
-    loan_display_df[col] = loan_display_df[col].map("${:,.2f}".format)
-  loan_display_df["Rate (%)"] = loan_display_df["Rate (%)"].map(
-      lambda val: f"{val:.2f}%"
+  st.subheader("Expense Breakdown by Category (Monthly)")
+  cat_df = pd.DataFrame(
+      {
+          "Category": cat_summary.index,
+          "Monthly Cost ($)": cat_summary.values,
+          "% of Total Expenses": (
+              (cat_summary.values / total_all_expenses * 100)
+              if total_all_expenses > 0
+              else 0
+          ),
+      }
   )
-  st.dataframe(loan_display_df, use_container_width=True)
-
-st.subheader("Detailed Expense Items")
-if not exp_df.empty:
-  display_df = exp_df[["category", "name", "amount", "frequency", "monthly"]].copy()
-  display_df.columns = [
-      "Category",
-      "Expense Item",
-      "Amount",
-      "Frequency",
-      "Monthly Equivalent",
-  ]
-  display_df["Amount"] = display_df["Amount"].map("${:,.2f}".format)
-  display_df["Monthly Equivalent"] = display_df["Monthly Equivalent"].map(
+  cat_df_display = cat_df.copy()
+  cat_df_display["Monthly Cost ($)"] = cat_df_display["Monthly Cost ($)"].map(
       "${:,.2f}".format
   )
-  st.dataframe(display_df, use_container_width=True)
+  cat_df_display["% of Total Expenses"] = cat_df_display[
+      "% of Total Expenses"
+  ].map("{:.1f}%".format)
+  st.table(cat_df_display)
 
-# -------------------------------------------------------------------------
-# EXPORT OPTIONS (CSV & PDF)
-# -------------------------------------------------------------------------
-st.divider()
-st.subheader("Export Options")
-
-col_csv, col_pdf = st.columns(2)
-
-with col_csv:
-  csv_buffer = io.StringIO()
-  csv_buffer.write("=== SUMMARY ===\n")
-  csv_buffer.write(f"Total Monthly Income,{total_monthly_income}\n")
-  csv_buffer.write(f"Total Monthly Expenses,{total_all_expenses}\n")
-  csv_buffer.write(f"Total Monthly Debt,{total_loan_monthly}\n")
-  csv_buffer.write(f"Net Surplus Funds,{net_surplus}\n\n")
-
-  csv_buffer.write("=== INCOME STREAMS ===\n")
-  inc_export_df = pd.DataFrame(st.session_state.incomes)[
-      ["name", "amount", "frequency"]
-  ]
-  if not inc_export_df.empty:
-    inc_export_df.to_csv(csv_buffer, index=False)
-
-  csv_buffer.write("\n=== LOANS & DEBTS ===\n")
-  loan_export_df = pd.DataFrame(st.session_state.loans)[
-      ["name", "balance", "rate", "type", "term"]
-  ]
-  if not loan_export_df.empty:
-    loan_export_df.to_csv(csv_buffer, index=False)
-
-  csv_buffer.write("\n=== EXPENSES ===\n")
-  exp_export_df = exp_df[["category", "name", "amount", "frequency"]]
-  if not exp_export_df.empty:
-    exp_export_df.to_csv(csv_buffer, index=False)
-
-  st.download_button(
-      label="📥 Download as CSV",
-      data=csv_buffer.getvalue(),
-      file_name="income_and_expense_report.csv",
-      mime="text/csv",
-      use_container_width=True,
-  )
-
-with col_pdf:
-  if REPORTLAB_AVAILABLE:
-    summary_metrics = {
-        "income": total_monthly_income,
-        "expenses": total_all_expenses,
-        "surplus": net_surplus,
-    }
-    pdf_buffer = create_pdf(
-        st.session_state.incomes,
-        st.session_state.expenses,
-        st.session_state.loans,
-        summary_metrics,
-        cat_df_display,
-        total_loan_monthly,
+  if st.session_state.loans:
+    st.subheader("Loans & Amortization Breakdown")
+    loan_display_df = pd.DataFrame(st.session_state.loans)
+    loan_display_df.columns = [
+        "Loan Name",
+        "Balance",
+        "Rate (%)",
+        "Type",
+        "Term (Yrs)",
+        "Monthly Payment",
+        "Principal Component",
+        "Interest Component",
+    ]
+    for col in [
+        "Balance",
+        "Monthly Payment",
+        "Principal Component",
+        "Interest Component",
+    ]:
+      loan_display_df[col] = loan_display_df[col].map("${:,.2f}".format)
+    loan_display_df["Rate (%)"] = loan_display_df["Rate (%)"].map(
+        "{:.2f}%".format
     )
+    st.dataframe(loan_display_df, use_container_width=True)
+
+  st.subheader("Detailed Expense Items")
+  if not exp_df.empty:
+    display_df = exp_df[["category", "name", "amount", "frequency", "monthly"]].copy()
+    display_df.columns = [
+        "Category",
+        "Expense Item",
+        "Amount",
+        "Frequency",
+        "Monthly Equivalent",
+    ]
+    display_df["Amount"] = display_df["Amount"].map("${:,.2f}".format)
+    display_df["Monthly Equivalent"] = display_df["Monthly Equivalent"].map(
+        "${:,.2f}".format
+    )
+    st.dataframe(display_df, use_container_width=True)
+
+  # -------------------------------------------------------------------------
+  # EXPORT OPTIONS (CSV & Native PDF Download)
+  # -------------------------------------------------------------------------
+  st.divider()
+  st.subheader("Export Options")
+
+  col_csv, col_pdf = st.columns(2)
+
+  with col_csv:
+    csv_buffer = io.StringIO()
+    csv_buffer.write("=== SUMMARY ===\n")
+    csv_buffer.write(f"Total Monthly Income,{total_monthly_income}\n")
+    csv_buffer.write(f"Total Monthly Expenses,{total_all_expenses}\n")
+    csv_buffer.write(f"Total Monthly Debt,{total_loan_monthly}\n")
+    csv_buffer.write(f"Net Surplus Funds,{net_surplus}\n\n")
+
+    csv_buffer.write("=== INCOME STREAMS ===\n")
+    inc_export_df = pd.DataFrame(st.session_state.incomes)
+    if not inc_export_df.empty:
+      inc_export_df.to_csv(csv_buffer, index=False)
+
+    csv_buffer.write("\n=== LOANS & DEBTS ===\n")
+    loan_export_df = pd.DataFrame(st.session_state.loans)
+    if not loan_export_df.empty:
+      loan_export_df.to_csv(csv_buffer, index=False)
+
+    csv_buffer.write("\n=== EXPENSES ===\n")
+    if not exp_df.empty:
+      exp_df.to_csv(csv_buffer, index=False)
+
     st.download_button(
-        label="📄 Download Report as PDF",
-        data=pdf_buffer,
-        file_name="income_and_expense_report.pdf",
-        mime="application/pdf",
+        label="📥 Download as CSV",
+        data=csv_buffer.getvalue(),
+        file_name="income_and_expense_report.csv",
+        mime="text/csv",
         use_container_width=True,
     )
-  else:
-    st.warning(
-        "PDF Export unavailable: Please run `pip install reportlab` or add"
-        " `reportlab` to requirements.txt"
-    )
+
+  with col_pdf:
+    if REPORTLAB_AVAILABLE:
+      summary_metrics = {
+          "income": total_monthly_income,
+          "expenses": total_all_expenses,
+          "surplus": net_surplus,
+      }
+      pdf_buffer = create_pdf(
+          st.session_state.incomes,
+          st.session_state.expenses,
+          st.session_state.loans,
+          summary_metrics,
+          cat_df_display,
+          total_loan_monthly,
+      )
+      st.download_button(
+          label="📄 Download Report as PDF",
+          data=pdf_buffer,
+          file_name="income_and_expense_report.pdf",
+          mime="application/pdf",
+          use_container_width=True,
+      )
+    else:
+      st.warning(
+          "PDF Export unavailable: Please run `pip install reportlab` or add"
+          " `reportlab` to requirements.txt"
+      )
+
+else:
+  st.info("Add some income streams or expenses above to view the complete breakdown.")

@@ -351,7 +351,7 @@ st.divider()
 # -------------------------------------------------------------------------
 st.header("2. Debts & Loans Amortization")
 st.markdown(
-    "Add liabilities, select repayment type (P&I or INT), set term and rate "
+    "Add Mortgages, Car Loans, Personal Loans, Credit Cards, select repayment type (P&I or INT-Credit cards will be INT), set term and rate "
     "to auto-calculate monthly payments, principal, and interest splits."
 )
 

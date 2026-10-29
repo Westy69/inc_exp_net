@@ -62,10 +62,10 @@ loc_interest_rate = (
     / 100.0
 )
 loc_current_balance = st.sidebar.number_input(
-    "Current LOC Balance ($)", value=127000.0, step=1000.0
+    "Current LOC Balance ($)", value=137000.0, step=1000.0
 )
 max_chunk_ratio = (
-    st.sidebar.slider("Max % of LOC Limit to use for a Chunk", 20, 95, 95)
+    st.sidebar.slider("Max % of LOC Limit to use for a Chunk", 20, 90, 90)
     / 100.0
 )
 safety_buffer = st.sidebar.number_input(
@@ -79,7 +79,6 @@ strategy_mode = st.sidebar.selectbox(
         "Auto-Select Best Strategy (Compare All)",
         "Highest Interest First (Avalanche)",
         "Lowest Balance First (Snowball)",
-        "Highest Payment First (Cash-Flow Boost)",
     ],
 )
 
@@ -295,8 +294,8 @@ st.markdown(
 
 if "incomes" not in st.session_state:
     st.session_state.incomes = [
-        {"name": "Party 1 - Primary Salary", "amount": 6000.0, "frequency": "Monthly"},
-        {"name": "Party 2 - Salary", "amount": 3000.0, "frequency": "Monthly"},
+        {"name": "Party 1 - Primary Salary", "amount": 7000.0, "frequency": "Monthly"},
+        {"name": "Party 2 - Salary", "amount": 5000.0, "frequency": "Monthly"},
     ]
 
 income_cols = st.columns([3, 2, 2, 1])
@@ -359,12 +358,20 @@ st.markdown(
 if "loans" not in st.session_state:
     st.session_state.loans = [{
         "name": "Home Mortgage",
-        "balance": 400000.0,
+        "balance": 120000.0,
         "rate": 6.5,
         "type": "P&I",
-        "term": 25,
-        "fixed_lock_months": 0,
-    }]
+        "term": 13,
+        "fixed_lock_months": 12,
+    }, {
+        "name": "Green Loan",
+        "balance": 27600.0,
+        "rate": 1.0,
+        "type": "P&I",
+        "term": 13,
+        "fixed_lock_months": 36,
+    }
+    ]
 
 loan_cols = st.columns([2.2, 1.5, 1.0, 1.0, 1.0, 1.2, 1.2, 1.0, 1.0, 0.6])
 with loan_cols[0]:
@@ -466,8 +473,10 @@ st.divider()
 # -------------------------------------------------------------------------
 # 3. EXPENSES BY CATEGORY
 # -------------------------------------------------------------------------
-st.header("3. Categorized Expenses - Not Including Mortgages or loan repayments")
-st.markdown("Add recurring expenses across specified categories. Amounts are automatically normalized to a monthly equivalent.")
+
+st.markdown("### 3. Categorized Expenses - <span style='color: red; text-decoration: underline; font-weight: bold;'>Not Including Mortgages or loan repayments</span>",
+    unsafe_allow_html=True,
+)
 
 categories = [
     "House Hold Expenses",
@@ -503,7 +512,7 @@ if "expenses" not in st.session_state:
         {
             "category": "Insurances",
             "name": "Life, Medical, Contents, Loss of Income etc",
-            "amount": 500.0,
+            "amount": 3000.0,
             "frequency": "Monthly",
         },
     ]
@@ -658,17 +667,15 @@ else:
 st.divider()
 
 # -------------------------------------------------------------------------
-# 5. VELOCITY BANKING & DEBT PAYOFF SIMULATION ENGINE
+# 5. VORTEX BANKING & DEBT PAYOFF SIMULATION ENGINE
 # -------------------------------------------------------------------------
-st.header("⚡ Velocity Banking & Debt Payoff Simulation")
+st.header("⚡ Vortex Coach Rapid Debt Payoff Strategy Simulation")
 st.markdown(
     "Run simulations using your live debt tables, cash flow surplus, and Line of Credit (LOC) settings."
 )
 
 def sort_debts(debts, strategy):
-    if strategy == "Highest Payment First (Cash-Flow Boost)":
-        return sorted(debts, key=lambda x: x.get("monthly_payment", x.get("min_pay", 0)), reverse=True)
-    elif strategy == "Highest Interest First (Avalanche)":
+    if strategy == "Highest Interest First (Avalanche)":
         return sorted(debts, key=lambda x: x["rate"], reverse=True)
     elif strategy == "Lowest Balance First (Snowball)":
         return sorted(debts, key=lambda x: x["balance"])
@@ -795,7 +802,6 @@ if st.button("🚀 Run Payoff Simulation", type="primary"):
         strategies_to_test = [
             "Highest Interest First (Avalanche)",
             "Lowest Balance First (Snowball)",
-            "Highest Payment First (Cash-Flow Boost)",
         ]
 
         all_results = {}

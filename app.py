@@ -352,7 +352,7 @@ st.divider()
 st.header("2. Debts & Loans Amortization")
 st.markdown(
     "Add Mortgages, Car Loans, Personal Loans, Credit Cards, select repayment type (P&I or INT-Credit cards will be INT), set term and rate "
-    "to auto-calculate monthly payments, principal, and interest splits.",
+    "to auto-calculate monthly payments, principal, and interest splits."
     "NOTE: #DO NOT# - add a Line of credit or revolving credit here as it is added on left sidebar."
 )
 

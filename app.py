@@ -62,10 +62,13 @@ loc_interest_rate = (
     / 100.0
 )
 loc_current_balance = st.sidebar.number_input(
-    "Current LOC Balance ($)", value=137000.0, step=1000.0
+    "Current LOC Balance ($)", value=132000.0, step=1000.0
+)
+loc_baseline_term_yrs = st.sidebar.slider(
+    "LOC Baseline Amortization Term (Yrs)", 5, 30, 25
 )
 max_chunk_ratio = (
-    st.sidebar.slider("Max % of LOC Limit to use for a Chunk", 20, 90, 90)
+    st.sidebar.slider("Max % of LOC Limit to use for a Chunk", 20, 95, 95)
     / 100.0
 )
 safety_buffer = st.sidebar.number_input(
@@ -79,6 +82,7 @@ strategy_mode = st.sidebar.selectbox(
         "Auto-Select Best Strategy (Compare All)",
         "Highest Interest First (Avalanche)",
         "Lowest Balance First (Snowball)",
+        "Highest Payment First (Cash-Flow Boost)",
     ],
 )
 
@@ -123,7 +127,7 @@ with col_act2:
 # -------------------------------------------------------------------------
 # PDF GENERATION FUNCTION
 # -------------------------------------------------------------------------
-def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_total_monthly, lifetime_loan_summary):
+def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_total_monthly, lifetime_loan_summary, loc_summary):
     if not REPORTLAB_AVAILABLE:
         return None
         
@@ -165,9 +169,9 @@ def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_t
         ["Total Monthly Expenses", f"${summary_metrics['expenses']:,.2f}"],
         ["Total Monthly Debt/Loans", f"${loan_total_monthly:,.2f}"],
         ["Net Surplus Funds", f"${summary_metrics['surplus']:,.2f}"],
-        ["Total Principal Borrowed", f"${lifetime_loan_summary['total_principal']:,.2f}"],
-        ["Total Lifetime Interest", f"${lifetime_loan_summary['total_interest']:,.2f}"],
-        ["Total Lifetime Payments", f"${lifetime_loan_summary['total_payments']:,.2f}"],
+        ["Total Traditional Principal", f"${lifetime_loan_summary['total_principal']:,.2f}"],
+        ["Total Traditional Life Interest", f"${lifetime_loan_summary['total_interest']:,.2f}"],
+        [f"LOC Max Chunk Baseline ({loc_summary['term']} Yrs)", f"${loc_summary['interest']:,.2f}"],
     ]
     t_summary = Table(summary_data, colWidths=[250, 250])
     t_summary.setStyle(
@@ -294,8 +298,8 @@ st.markdown(
 
 if "incomes" not in st.session_state:
     st.session_state.incomes = [
-        {"name": "Party 1 - Primary Salary", "amount": 7000.0, "frequency": "Monthly"},
-        {"name": "Party 2 - Salary", "amount": 5000.0, "frequency": "Monthly"},
+        {"name": "Party 1 - Primary Salary", "amount": 6900.0, "frequency": "Monthly"},
+        {"name": "Party 2 - Salary", "amount": 2419.0, "frequency": "Bi-Weekly"},
     ]
 
 income_cols = st.columns([3, 2, 2, 1])
@@ -351,27 +355,28 @@ st.divider()
 # -------------------------------------------------------------------------
 st.header("2. Debts & Loans Amortization")
 st.markdown(
-    "Add Mortgages, Car Loans, Personal Loans, Credit Cards, select repayment type (P&I or INT-Credit cards will be INT), set term and rate "
+    "Add liabilities, select repayment type (P&I or INT), set term and rate "
     "to auto-calculate monthly payments, principal, and interest splits."
-    "NOTE: #DO NOT# - add a Line of credit or revolving credit here as it is added on left sidebar."
 )
 
 if "loans" not in st.session_state:
-    st.session_state.loans = [{
-        "name": "Home Mortgage",
-        "balance": 120000.0,
-        "rate": 6.5,
-        "type": "P&I",
-        "term": 13,
-        "fixed_lock_months": 12,
-    }, {
-        "name": "Green Loan",
-        "balance": 27600.0,
-        "rate": 1.0,
-        "type": "P&I",
-        "term": 13,
-        "fixed_lock_months": 36,
-    }
+    st.session_state.loans = [
+        {
+            "name": "Home Mortgage",
+            "balance": 120000.0,
+            "rate": 5.9,
+            "type": "P&I",
+            "term": 13,
+            "fixed_lock_months": 12,
+        },
+        {
+            "name": "New Loan",
+            "balance": 27600.0,
+            "rate": 1.0,
+            "type": "P&I",
+            "term": 5,
+            "fixed_lock_months": 12,
+        }
     ]
 
 loan_cols = st.columns([2.2, 1.5, 1.0, 1.0, 1.0, 1.2, 1.2, 1.0, 1.0, 0.6])
@@ -474,10 +479,8 @@ st.divider()
 # -------------------------------------------------------------------------
 # 3. EXPENSES BY CATEGORY
 # -------------------------------------------------------------------------
-
-st.markdown("### 3. Categorized Expenses - <span style='color: red; text-decoration: underline; font-weight: bold;'>Not Including Mortgages or loan repayments</span>",
-    unsafe_allow_html=True,
-)
+st.header("3. Categorized Expenses - Not Including Mortgages or loan repayments")
+st.markdown("Add recurring expenses across specified categories. Amounts are automatically normalized to a monthly equivalent.")
 
 categories = [
     "House Hold Expenses",
@@ -570,13 +573,13 @@ st.metric("Total Monthly Expenses", f"${total_monthly_expenses:,.2f}")
 st.divider()
 
 # -------------------------------------------------------------------------
-# 4. SUMMARY & EXPORT
+# 4. SUMMARY & REPORTS
 # -------------------------------------------------------------------------
 st.header("4. Summary & Reports")
 
 net_surplus = total_monthly_income - (total_monthly_expenses + total_loan_monthly)
 
-# Calculate lifetime loan commitments
+# Calculate lifetime loan commitments for traditional debts
 total_principal_borrowed = 0.0
 total_life_interest = 0.0
 total_life_payments = 0.0
@@ -605,6 +608,18 @@ for loan in st.session_state.loans:
         total_life_payments += l_pmts
         total_life_interest += l_pmts - bal
 
+# Calculate Standalone LOC Baseline Interest based on Max Allowable Chunk Limit
+loc_max_chunk_principal = loc_limit * max_chunk_ratio
+loc_m_rate = loc_interest_rate / 12.0
+loc_t_months = loc_baseline_term_yrs * 12
+if loc_m_rate > 0 and loc_t_months > 0:
+    loc_base_monthly_pmt = loc_max_chunk_principal * (loc_m_rate * (1 + loc_m_rate) ** loc_t_months) / ((1 + loc_m_rate) ** loc_t_months - 1)
+else:
+    loc_base_monthly_pmt = loc_max_chunk_principal / loc_t_months if loc_t_months > 0 else 0.0
+
+loc_base_total_payments = loc_base_monthly_pmt * loc_t_months
+loc_base_total_interest = loc_base_total_payments - loc_max_chunk_principal
+
 col_s1, col_s2, col_s3, col_s4 = st.columns(4)
 col_s1.metric("Total Income", f"${total_monthly_income:,.2f}")
 col_s2.metric("Total Expenses", f"${total_monthly_expenses:,.2f}")
@@ -613,9 +628,15 @@ col_s4.metric("Net Surplus", f"${net_surplus:,.2f}", delta=f"${net_surplus:,.2f}
 
 st.markdown("### Lifetime Loan Commitments")
 col_l1, col_l2, col_l3 = st.columns(3)
-col_l1.metric("Total Principal Borrowed", f"${total_principal_borrowed:,.2f}")
-col_l2.metric("Total Life Interest", f"${total_life_interest:,.2f}")
-col_l3.metric("Total Lifetime Payments", f"${total_life_payments:,.2f}")
+col_l1.metric("Total Traditional Principal", f"${total_principal_borrowed:,.2f}")
+col_l2.metric("Total Traditional Life Interest", f"${total_life_interest:,.2f}")
+col_l3.metric("Total Traditional Payments", f"${total_life_payments:,.2f}")
+
+st.markdown(f"### Standalone Line of Credit Max Chunk Baseline ({loc_baseline_term_yrs}-Yr Amortization @ {loc_interest_rate*100:.2f}%)")
+col_loc1, col_loc2, col_loc3 = st.columns(3)
+col_loc1.metric("Max Chunk Principal Limit", f"${loc_max_chunk_principal:,.2f}")
+col_loc2.metric("LOC Baseline Interest", f"${loc_base_total_interest:,.2f}")
+col_loc3.metric("LOC Baseline Total Payments", f"${loc_base_total_payments:,.2f}")
 
 cat_totals = {}
 for cat in categories:
@@ -646,6 +667,11 @@ if REPORTLAB_AVAILABLE:
         "total_interest": total_life_interest,
         "total_payments": total_life_payments,
     }
+    loc_summary = {
+        "term": loc_baseline_term_yrs,
+        "interest": loc_base_total_interest,
+        "payments": loc_base_total_payments,
+    }
     pdf_buffer = create_pdf(
         st.session_state.incomes,
         st.session_state.expenses,
@@ -654,6 +680,7 @@ if REPORTLAB_AVAILABLE:
         cat_df,
         total_loan_monthly,
         lifetime_loan_summary,
+        loc_summary,
     )
     if pdf_buffer:
         st.download_button(
@@ -668,15 +695,17 @@ else:
 st.divider()
 
 # -------------------------------------------------------------------------
-# 5. VORTEX BANKING & DEBT PAYOFF SIMULATION ENGINE
+# 5. VELOCITY BANKING & DEBT PAYOFF SIMULATION ENGINE
 # -------------------------------------------------------------------------
-st.header("⚡ Vortex Coach Rapid Debt Payoff Strategy Simulation")
+st.header("⚡ Velocity Banking & Debt Payoff Simulation")
 st.markdown(
     "Run simulations using your live debt tables, cash flow surplus, and Line of Credit (LOC) settings."
 )
 
 def sort_debts(debts, strategy):
-    if strategy == "Highest Interest First (Avalanche)":
+    if strategy == "Highest Payment First (Cash-Flow Boost)":
+        return sorted(debts, key=lambda x: x.get("monthly_payment", x.get("min_pay", 0)), reverse=True)
+    elif strategy == "Highest Interest First (Avalanche)":
         return sorted(debts, key=lambda x: x["rate"], reverse=True)
     elif strategy == "Lowest Balance First (Snowball)":
         return sorted(debts, key=lambda x: x["balance"])
@@ -803,6 +832,7 @@ if st.button("🚀 Run Payoff Simulation", type="primary"):
         strategies_to_test = [
             "Highest Interest First (Avalanche)",
             "Lowest Balance First (Snowball)",
+            "Highest Payment First (Cash-Flow Boost)",
         ]
 
         all_results = {}

@@ -16,12 +16,12 @@ except ModuleNotFoundError:
     REPORTLAB_AVAILABLE = False
 
 st.set_page_config(
-    page_title="Dynamic Income & Expense Analyzer",
+    page_title="Vortex Coach Income & Expense Analyzer",
     page_icon="💰",
     layout="wide"
 )
 
-st.title("💰 Dynamic Income & Expense Analyzer")
+st.title("💰 Vortex Coach Income & Expense Analyzer")
 st.markdown(
     "Dynamically manage income streams, categorized expenses, and debt/loan "
     "amortizations with auto-calculated payments and velocity banking simulations."
@@ -68,7 +68,7 @@ loc_baseline_term_yrs = st.sidebar.slider(
     "LOC Baseline Amortization Term (Yrs)", 5, 30, 25
 )
 max_chunk_ratio = (
-    st.sidebar.slider("Max % of LOC Limit to use for a Chunk", 20, 95, 95)
+    st.sidebar.slider("Max % of LOC Limit to use for a Chunk", 20, 90, 95)
     / 100.0
 )
 safety_buffer = st.sidebar.number_input(
@@ -374,7 +374,7 @@ if "loans" not in st.session_state:
             "balance": 27600.0,
             "rate": 1.0,
             "type": "P&I",
-            "term": 5,
+            "term": 13,
             "fixed_lock_months": 12,
         }
     ]

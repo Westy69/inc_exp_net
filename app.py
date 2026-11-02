@@ -703,13 +703,20 @@ st.markdown(
 )
 
 def sort_debts(debts, strategy):
+    # Filter out any items explicitly recognized as LOC/Line of Credit from target debt sorting
+    target_debts = [d for d in debts if "loc" not in d["name"].lower() and "line of credit" not in d["name"].lower()]
+    
     if strategy == "Highest Payment First (Cash-Flow Boost)":
-        return sorted(debts, key=lambda x: x.get("monthly_payment", x.get("min_pay", 0)), reverse=True)
+        sorted_targets = sorted(target_debts, key=lambda x: x.get("monthly_payment", x.get("min_pay", 0)), reverse=True)
     elif strategy == "Highest Interest First (Avalanche)":
-        return sorted(debts, key=lambda x: x["rate"], reverse=True)
+        sorted_targets = sorted(target_debts, key=lambda x: x["rate"], reverse=True)
     elif strategy == "Lowest Balance First (Snowball)":
-        return sorted(debts, key=lambda x: x["balance"])
-    return debts
+        sorted_targets = sorted(target_debts, key=lambda x: x["balance"])
+    else:
+        sorted_targets = target_debts
+        
+    excluded_debts = [d for d in debts if d not in sorted_targets]
+    return sorted_targets + excluded_debts
 
 def run_velocity_simulation(
     debts_input,
@@ -759,7 +766,8 @@ def run_velocity_simulation(
             if month == lock_months and d["balance"] > 0.01:
                 rem_bal = d["balance"]
                 d["balance"] = 0
-                loc_bal += rem_bal
+                # Ensure fixed-lock rollover into LOC respects the absolute limit
+                loc_bal = min(loc_limit, loc_bal + rem_bal)
 
         unlocked_debts = [
             d
@@ -768,14 +776,15 @@ def run_velocity_simulation(
         ]
         unlocked_debts = sort_debts(unlocked_debts, strategy)
 
-        loc_available = max_chunk_allowed - loc_bal
+        # Strictly calculate available LOC headroom up to the allowed chunk threshold
+        loc_available = max(0.0, max_chunk_allowed - loc_bal)
         if loc_available > 500 and unlocked_debts:
             target_debt = unlocked_debts[0]
             chunk_amount = min(target_debt["balance"], loc_available)
 
             if chunk_amount > 0:
                 target_debt["balance"] -= chunk_amount
-                loc_bal += chunk_amount
+                loc_bal = min(loc_limit, loc_bal + chunk_amount)
 
         loc_interest_month = (loc_bal * loc_rate) / 12.0
         total_interest_loc += loc_interest_month

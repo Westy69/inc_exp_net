@@ -398,7 +398,6 @@ for i, loan in enumerate(st.session_state.loans):
     with lc5:
         lterm = st.number_input("Term (Yrs)", min_value=1, max_value=50, step=1, value=int(loan["term"]), key=f"loan_term_{i}", label_visibility="collapsed")
 
-    # Calculations
     monthly_rate = (lrate / 100.0) / 12.0
     total_months = int(lterm * 12)
     monthly_interest = lbal * monthly_rate
@@ -412,7 +411,7 @@ for i, loan in enumerate(st.session_state.loans):
         else:
             monthly_payment = lbal / total_months if total_months > 0 else 0.0
         monthly_principal = monthly_payment - monthly_interest
-    else:  # Interest Only
+    else:
         monthly_payment = monthly_interest
         monthly_principal = 0.0
 
@@ -552,7 +551,6 @@ st.header("4. Summary & Reports")
 
 net_surplus = total_monthly_income - (total_monthly_expenses + total_loan_monthly)
 
-# Calculate lifetime loan commitments for traditional debts
 total_principal_borrowed = 0.0
 total_life_interest = 0.0
 total_life_payments = 0.0
@@ -581,7 +579,6 @@ for loan in st.session_state.loans:
         total_life_payments += l_pmts
         total_life_interest += l_pmts - bal
 
-# Calculate Standalone LOC Baseline Interest based on Max Allowable Chunk Limit
 loc_max_chunk_principal = loc_limit * max_chunk_ratio
 loc_m_rate = loc_interest_rate / 12.0
 loc_t_months = loc_baseline_term_yrs * 12
@@ -668,14 +665,21 @@ else:
 st.divider()
 
 # -------------------------------------------------------------------------
-# 5. VELOCITY BANKING & DEBT PAYOFF SIMULATION ENGINE
+# 5. SEPARATED DUAL-ROUTINE SIMULATION ENGINE (LOC CHUNKS + P&I AMORTIZATION)
 # -------------------------------------------------------------------------
-st.header("⚡ Velocity Banking & Debt Payoff Simulation")
+st.header("⚡ Separated Dual-Routine Simulation: LOC Chunks & P&I Amortization")
 st.markdown(
-    "Run simulations using your live debt tables, cash flow surplus, and Line of Credit (LOC) settings."
+    "Runs the traditional P&I loan on its native monthly amortization schedule, "
+    "while managing the LOC surplus sweeps and annual chunking injections as a separate routine."
 )
 
-def run_velocity_simulation(
+cycle_target_loan = st.selectbox(
+    "Select Target Loan for Annual Chunking Injections",
+    options=[loan["name"] for loan in st.session_state.loans] if "loans" in st.session_state and st.session_state.loans else ["Home Mortgage"],
+    key="separated_target_loan"
+)
+
+def run_separated_routines_simulation(
     debts_input,
     income,
     expenses,
@@ -683,7 +687,7 @@ def run_velocity_simulation(
     loc_rate,
     loc_start_bal,
     max_chunk_pct,
-    buffer,
+    target_loan_name,
 ):
     debts = copy.deepcopy(debts_input)
     for d in debts:
@@ -702,93 +706,78 @@ def run_velocity_simulation(
 
     while month < max_months:
         month += 1
+        current_cycle_year = ((month - 1) // 12) + 1
+        month_in_cycle = ((month - 1) % 12) + 1
 
         active_debts = [d for d in debts if d["balance"] > 0.01]
         if not active_debts and loc_bal <= 0.01:
             break
 
-        total_min_payments = sum(d.get("monthly_payment", d.get("min_pay", 0)) for d in active_debts)
+        total_min_payments = sum(d.get("monthly_payment", 0) for d in active_debts)
         monthly_cash_flow = income - expenses - total_min_payments
 
         if monthly_cash_flow < 0:
             st.error(
-                f"Month {month}: Expenses and Minimum Payments exceed Monthly Income!"
-                " Positive cash flow is required."
+                f"Month {month}: Expenses and Minimum Payments exceed income!"
             )
             return None
 
-        # Always target highest interest rate loan first (Avalanche)
-        target_debts = [d for d in active_debts if "loc" not in d["name"].lower() and "line of credit" not in d["name"].lower()]
-        sorted_debts = sorted(target_debts, key=lambda x: x["rate"], reverse=True)
-
-        # 12-Month Fixed Term Lock Check (Months 1, 13, 25, 37, 49, etc.)
-        is_fixed_term_start = (month % 12 == 1)
-
-        if is_fixed_term_start:
+        # ROUTINE 1: At the start of each new 12-month cycle, inject accumulated LOC headroom chunk into the target loan
+        if month_in_cycle == 1 and month > 1:
             loc_available = max(0.0, effective_max_chunk - loc_bal)
-            if loc_available > 500 and sorted_debts:
-                target_debt = sorted_debts[0]
-                chunk_amount = min(target_debt["balance"], loc_available)
+            if loc_available > 500:
+                for d in active_debts:
+                    if d["name"] == target_loan_name:
+                        chunk_amount = min(d["balance"], loc_available)
+                        if chunk_amount > 0:
+                            d["balance"] -= chunk_amount
+                            loc_bal += chunk_amount
+                        break
 
-                if chunk_amount > 0:
-                    target_debt["balance"] -= chunk_amount
-                    loc_bal += chunk_amount
-
-        # Accrue LOC monthly interest
+        # Accrue LOC monthly interest & sweep surplus
         loc_interest_month = (loc_bal * loc_rate) / 12.0
         total_interest_loc += loc_interest_month
         loc_bal += loc_interest_month
 
-        # Sweep net monthly cash flow into paying down LOC
         paydown_to_loc = min(monthly_cash_flow, loc_bal)
         loc_bal -= paydown_to_loc
-        remaining_cash_flow = monthly_cash_flow - paydown_to_loc
 
-        # Regular debt amortization
+        # ROUTINE 2: Traditional P&I Loan Amortization (Native Monthly Schedule)
         for d in active_debts:
-            monthly_interest = (d["balance"] * d["rate"]) / 12.0
-            total_interest_debts += monthly_interest
+            monthly_rate = d["rate"] / 12.0
+            loan_interest = d["balance"] * monthly_rate
+            total_interest_debts += loan_interest
             
-            min_p = d.get("monthly_payment", d.get("min_pay", 0))
-            principal_payment = max(0.0, min_p - monthly_interest)
-            actual_principal = min(principal_payment, d["balance"])
-            d["balance"] -= actual_principal
-
-            if (
-                remaining_cash_flow > 0
-                and sorted_debts
-                and d == sorted_debts[0]
-            ):
-                extra = min(remaining_cash_flow, d["balance"])
-                d["balance"] -= extra
-                remaining_cash_flow -= extra
+            # Standard P&I minimum payment principal reduction
+            min_pmt = d.get("monthly_payment", 0)
+            loan_principal_reduction = max(0.0, min_pmt - loan_interest)
+            
+            d["balance"] = max(0.0, d["balance"] - loan_principal_reduction)
 
         total_debt_bal = sum(d["balance"] for d in debts)
-
         loan_snapshot = {f"Loan_{d['name']}": round(d["balance"], 2) for d in debts}
 
         log_entry = {
             "Month": month,
+            "Cycle Year": current_cycle_year,
             "Total Debt Balance": round(total_debt_bal, 2),
             "LOC Balance": round(loc_bal, 2),
             "Combined Balance": round(total_debt_bal + loc_bal, 2),
             "Monthly Cash Flow": round(monthly_cash_flow, 2),
             "Interest Paid (LOC)": round(total_interest_loc, 2),
             "Interest Paid (Debts)": round(total_interest_debts, 2),
-            "Total Interest Paid": round(
-                total_interest_loc + total_interest_debts, 2
-            ),
+            "Total Interest Paid": round(total_interest_loc + total_interest_debts, 2),
         }
         log_entry.update(loan_snapshot)
         logs.append(log_entry)
 
     return pd.DataFrame(logs)
 
-if st.button("🚀 Run Payoff Simulation", type="primary"):
+if st.button("🚀 Run Separated Simulation", type="primary", key="btn_separated"):
     if "loans" not in st.session_state or not st.session_state.loans:
         st.warning("Please add at least one debt or loan item.")
     else:
-        results_df = run_velocity_simulation(
+        results_df = run_separated_routines_simulation(
             st.session_state.loans,
             total_monthly_income,
             total_monthly_expenses,
@@ -796,7 +785,7 @@ if st.button("🚀 Run Payoff Simulation", type="primary"):
             loc_interest_rate,
             loc_current_balance,
             max_chunk_ratio,
-            safety_buffer,
+            cycle_target_loan,
         )
 
         if results_df is not None and not results_df.empty:
@@ -806,51 +795,23 @@ if st.button("🚀 Run Payoff Simulation", type="primary"):
             total_interest = results_df["Total Interest Paid"].max()
 
             st.success(
-                f"⚡ **Velocity Banking Simulation Complete:** "
+                f"⚡ **Separated Simulation Complete ({cycle_target_loan} Target):** "
                 f"Debt-Free in {total_months} Months ({round(total_months/12, 1)} Years) | "
                 f"Total Interest Paid: ${total_interest:,.2f}"
             )
 
             m1, m2, m3 = st.columns(3)
-            m1.metric(
-                "Debt-Free Timeline",
-                f"{total_months} Months",
-                f"{round(total_months/12, 1)} Years",
-            )
+            m1.metric("Timeline", f"{total_months} Months", f"{round(total_months/12, 1)} Years")
             m2.metric("Total Interest Paid", f"${total_interest:,.2f}")
-            m3.metric(
-                "Final Monthly Cash Flow",
-                f"${results_df['Monthly Cash Flow'].iloc[-1]:,.2f}",
-            )
+            m3.metric("Final Monthly Cash Flow", f"${results_df['Monthly Cash Flow'].iloc[-1]:,.2f}")
 
             fig = go.Figure()
-            fig.add_trace(
-                go.Scatter(
-                    x=results_df["Month"],
-                    y=results_df["Total Debt Balance"],
-                    name="Traditional Debts Balance",
-                    line=dict(color="orange", width=2),
-                )
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=results_df["Month"],
-                    y=results_df["LOC Balance"],
-                    name="Line of Credit Balance",
-                    line=dict(color="firebrick", width=2, dash="dash"),
-                )
-            )
-            fig.add_trace(
-                go.Scatter(
-                    x=results_df["Month"],
-                    y=results_df["Combined Balance"],
-                    name="Total Combined Liability",
-                    line=dict(color="green", width=3),
-                )
-            )
+            fig.add_trace(go.Scatter(x=results_df["Month"], y=results_df["Total Debt Balance"], name="Traditional Debts Balance", line=dict(color="orange", width=2)))
+            fig.add_trace(go.Scatter(x=results_df["Month"], y=results_df["LOC Balance"], name="Line of Credit Balance", line=dict(color="firebrick", width=2, dash="dash")))
+            fig.add_trace(go.Scatter(x=results_df["Month"], y=results_df["Combined Balance"], name="Total Combined Liability", line=dict(color="green", width=3)))
 
             fig.update_layout(
-                title="Debt Paydown & LOC Chunking Trajectory (Highest Interest First)",
+                title=f"Separated Routine Trajectory — Targeting: {cycle_target_loan}",
                 xaxis_title="Months",
                 yaxis_title="Balance ($)",
                 hovermode="x unified",
@@ -858,7 +819,7 @@ if st.button("🚀 Run Payoff Simulation", type="primary"):
             )
             st.plotly_chart(fig, use_container_width=True)
 
-            with st.expander("🔍 View Month-by-Month Amortization Schedule"):
+            with st.expander("🔍 View Separated Amortization Schedule"):
                 st.dataframe(results_df, use_container_width=True)
 
 # -------------------------------------------------------------------------

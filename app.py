@@ -53,7 +53,7 @@ category_help = {
 # -------------------------------------------------------------------------
 st.sidebar.header("⚡ Line of Credit (LOC) Settings")
 loc_limit = st.sidebar.number_input(
-    "LOC Total Limit ($)", value=200000.0, step=5000.0
+    "LOC Total Limit ($)", value=50000.0, step=5000.0
 )
 loc_interest_rate = (
     st.sidebar.number_input(
@@ -62,28 +62,17 @@ loc_interest_rate = (
     / 100.0
 )
 loc_current_balance = st.sidebar.number_input(
-    "Current LOC Balance ($)", value=132000.0, step=1000.0
+    "Current LOC Balance ($)", value=50000.0, step=1000.0
 )
 loc_baseline_term_yrs = st.sidebar.slider(
     "LOC Baseline Amortization Term (Yrs)", 5, 30, 25
 )
 max_chunk_ratio = (
-    st.sidebar.slider("Max % of LOC Limit to use for a Chunk", 20, 90, 95)
+    st.sidebar.slider("Max % of LOC Limit to use for a Chunk", 20, 95, 80)
     / 100.0
 )
 safety_buffer = st.sidebar.number_input(
-    "Safety Buffer / Emergency Reserve ($)", value=1000.0, step=100.0
-)
-
-st.sidebar.header("🎯 Priority Strategy Selection")
-strategy_mode = st.sidebar.selectbox(
-    "Select Strategy Option",
-    [
-        "Auto-Select Best Strategy (Compare All)",
-        "Highest Interest First (Avalanche)",
-        "Lowest Balance First (Snowball)",
-        "Highest Payment First (Cash-Flow Boost)",
-    ],
+    "Safety Buffer / Emergency Reserve ($)", value=0.0, step=100.0
 )
 
 st.sidebar.divider()
@@ -226,7 +215,7 @@ def create_pdf(incomes, expenses, loans, summary_metrics, cat_summary_df, loan_t
                 f"${l['monthly_principal']:,.2f}",
                 f"${l['monthly_interest']:,.2f}",
             ])
-        t_loan = Table(loan_data, colWidths=[110, 60, 50, 45, 55, 65, 60, 55])
+        t_loan = Table(loan_data, colWidths=[130, 70, 50, 45, 55, 65, 60, 55])
         t_loan.setStyle(
             TableStyle([
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#7C3AED")),
@@ -363,23 +352,14 @@ if "loans" not in st.session_state:
     st.session_state.loans = [
         {
             "name": "Home Mortgage",
-            "balance": 120000.0,
-            "rate": 5.9,
+            "balance": 400000.0,
+            "rate": 5.8,
             "type": "P&I",
-            "term": 13,
-            "fixed_lock_months": 12,
-        },
-        {
-            "name": "New Loan",
-            "balance": 27600.0,
-            "rate": 1.0,
-            "type": "P&I",
-            "term": 13,
-            "fixed_lock_months": 12,
+            "term": 25,
         }
     ]
 
-loan_cols = st.columns([2.2, 1.5, 1.0, 1.0, 1.0, 1.2, 1.2, 1.0, 1.0, 0.6])
+loan_cols = st.columns([2.5, 1.5, 1.0, 1.0, 1.0, 1.2, 1.0, 1.0, 0.6])
 with loan_cols[0]:
     st.markdown("**Loan Name**")
 with loan_cols[1]:
@@ -391,14 +371,12 @@ with loan_cols[3]:
 with loan_cols[4]:
     st.markdown("**Term (Yrs)**")
 with loan_cols[5]:
-    st.markdown("**Fixed Lock**")
-with loan_cols[6]:
     st.markdown("**Monthly Pmt**")
-with loan_cols[7]:
+with loan_cols[6]:
     st.markdown("**Principal**")
-with loan_cols[8]:
+with loan_cols[7]:
     st.markdown("**Interest**")
-with loan_cols[9]:
+with loan_cols[8]:
     st.markdown("**Action**")
 
 updated_loans = []
@@ -406,10 +384,9 @@ total_loan_monthly = 0.0
 total_loan_principal = 0.0
 total_loan_interest = 0.0
 loan_types = ["P&I", "INT"]
-lock_options = [0, 12, 24, 36, 48, 60]
 
 for i, loan in enumerate(st.session_state.loans):
-    lc1, lc2, lc3, lc4, lc5, lc6, lc7, lc8, lc9, lc10 = st.columns([2.2, 1.5, 1.0, 1.0, 1.0, 1.2, 1.2, 1.0, 1.0, 0.6])
+    lc1, lc2, lc3, lc4, lc5, lc6, lc7, lc8, lc9 = st.columns([2.5, 1.5, 1.0, 1.0, 1.0, 1.2, 1.0, 1.0, 0.6])
     with lc1:
         lname = st.text_input("Loan Name", value=loan["name"], key=f"loan_name_{i}", label_visibility="collapsed")
     with lc2:
@@ -420,9 +397,6 @@ for i, loan in enumerate(st.session_state.loans):
         ltype = st.selectbox("Type", loan_types, index=loan_types.index(loan["type"]) if loan["type"] in loan_types else 0, key=f"loan_type_{i}", label_visibility="collapsed")
     with lc5:
         lterm = st.number_input("Term (Yrs)", min_value=1, max_value=50, step=1, value=int(loan["term"]), key=f"loan_term_{i}", label_visibility="collapsed")
-    with lc6:
-        current_lock = loan.get("fixed_lock_months", 0)
-        llock = st.selectbox("Lock", lock_options, index=lock_options.index(current_lock) if current_lock in lock_options else 0, key=f"loan_lock_{i}", label_visibility="collapsed")
 
     # Calculations
     monthly_rate = (lrate / 100.0) / 12.0
@@ -442,13 +416,13 @@ for i, loan in enumerate(st.session_state.loans):
         monthly_payment = monthly_interest
         monthly_principal = 0.0
 
-    with lc7:
+    with lc6:
         st.markdown(f"**${monthly_payment:,.2f}**")
-    with lc8:
+    with lc7:
         st.markdown(f"${monthly_principal:,.2f}")
-    with lc9:
+    with lc8:
         st.markdown(f"${monthly_interest:,.2f}")
-    with lc10:
+    with lc9:
         lrem = st.button("❌", key=f"loan_rem_{i}")
 
     if not lrem:
@@ -461,7 +435,6 @@ for i, loan in enumerate(st.session_state.loans):
             "rate": lrate,
             "type": ltype,
             "term": lterm,
-            "fixed_lock_months": llock,
             "monthly_payment": monthly_payment,
             "monthly_principal": monthly_principal,
             "monthly_interest": monthly_interest,
@@ -470,7 +443,7 @@ for i, loan in enumerate(st.session_state.loans):
 st.session_state.loans = updated_loans
 
 if st.button("➕ Add Loan / Debt"):
-    st.session_state.loans.append({"name": "New Loan", "balance": 10000.0, "rate": 5.0, "type": "P&I", "term": 5, "fixed_lock_months": 0})
+    st.session_state.loans.append({"name": "New Loan", "balance": 10000.0, "rate": 5.0, "type": "P&I", "term": 5})
     st.rerun()
 
 st.metric("Total Monthly Debt Payments", f"${total_loan_monthly:,.2f}")
@@ -702,22 +675,6 @@ st.markdown(
     "Run simulations using your live debt tables, cash flow surplus, and Line of Credit (LOC) settings."
 )
 
-def sort_debts(debts, strategy):
-    # Filter out any items explicitly recognized as LOC/Line of Credit from target debt sorting
-    target_debts = [d for d in debts if "loc" not in d["name"].lower() and "line of credit" not in d["name"].lower()]
-    
-    if strategy == "Highest Payment First (Cash-Flow Boost)":
-        sorted_targets = sorted(target_debts, key=lambda x: x.get("monthly_payment", x.get("min_pay", 0)), reverse=True)
-    elif strategy == "Highest Interest First (Avalanche)":
-        sorted_targets = sorted(target_debts, key=lambda x: x["rate"], reverse=True)
-    elif strategy == "Lowest Balance First (Snowball)":
-        sorted_targets = sorted(target_debts, key=lambda x: x["balance"])
-    else:
-        sorted_targets = target_debts
-        
-    excluded_debts = [d for d in debts if d not in sorted_targets]
-    return sorted_targets + excluded_debts
-
 def run_velocity_simulation(
     debts_input,
     income,
@@ -727,15 +684,14 @@ def run_velocity_simulation(
     loc_start_bal,
     max_chunk_pct,
     buffer,
-    strategy,
 ):
     debts = copy.deepcopy(debts_input)
     for d in debts:
-        if d["rate"] > 1.0:
+        if d["rate"] >= 1.0:
             d["rate"] = d["rate"] / 100.0
 
     loc_bal = loc_start_bal
-    max_chunk_allowed = loc_limit * max_chunk_pct
+    effective_max_chunk = loc_limit * max_chunk_pct
 
     month = 0
     max_months = 360
@@ -761,52 +717,47 @@ def run_velocity_simulation(
             )
             return None
 
-        for d in active_debts:
-            lock_months = d.get("fixed_lock_months", 0)
-            if month == lock_months and d["balance"] > 0.01:
-                rem_bal = d["balance"]
-                d["balance"] = 0
-                # Ensure fixed-lock rollover into LOC respects the absolute limit
-                loc_bal = min(loc_limit, loc_bal + rem_bal)
+        # Always target highest interest rate loan first (Avalanche)
+        target_debts = [d for d in active_debts if "loc" not in d["name"].lower() and "line of credit" not in d["name"].lower()]
+        sorted_debts = sorted(target_debts, key=lambda x: x["rate"], reverse=True)
 
-        unlocked_debts = [
-            d
-            for d in active_debts
-            if d["balance"] > 0.01 and month > d.get("fixed_lock_months", 0)
-        ]
-        unlocked_debts = sort_debts(unlocked_debts, strategy)
+        # 12-Month Fixed Term Lock Check (Months 1, 13, 25, 37, 49, etc.)
+        is_fixed_term_start = (month % 12 == 1)
 
-        # Strictly calculate available LOC headroom up to the allowed chunk threshold
-        loc_available = max(0.0, max_chunk_allowed - loc_bal)
-        if loc_available > 500 and unlocked_debts:
-            target_debt = unlocked_debts[0]
-            chunk_amount = min(target_debt["balance"], loc_available)
+        if is_fixed_term_start:
+            loc_available = max(0.0, effective_max_chunk - loc_bal)
+            if loc_available > 500 and sorted_debts:
+                target_debt = sorted_debts[0]
+                chunk_amount = min(target_debt["balance"], loc_available)
 
-            if chunk_amount > 0:
-                target_debt["balance"] -= chunk_amount
-                loc_bal = min(loc_limit, loc_bal + chunk_amount)
+                if chunk_amount > 0:
+                    target_debt["balance"] -= chunk_amount
+                    loc_bal += chunk_amount
 
+        # Accrue LOC monthly interest
         loc_interest_month = (loc_bal * loc_rate) / 12.0
         total_interest_loc += loc_interest_month
         loc_bal += loc_interest_month
 
+        # Sweep net monthly cash flow into paying down LOC
         paydown_to_loc = min(monthly_cash_flow, loc_bal)
         loc_bal -= paydown_to_loc
         remaining_cash_flow = monthly_cash_flow - paydown_to_loc
 
+        # Regular debt amortization
         for d in active_debts:
             monthly_interest = (d["balance"] * d["rate"]) / 12.0
             total_interest_debts += monthly_interest
-            d["balance"] += monthly_interest
-
+            
             min_p = d.get("monthly_payment", d.get("min_pay", 0))
-            pay = min(min_p, d["balance"])
-            d["balance"] -= pay
+            principal_payment = max(0.0, min_p - monthly_interest)
+            actual_principal = min(principal_payment, d["balance"])
+            d["balance"] -= actual_principal
 
             if (
                 remaining_cash_flow > 0
-                and unlocked_debts
-                and d == unlocked_debts[0]
+                and sorted_debts
+                and d == sorted_debts[0]
             ):
                 extra = min(remaining_cash_flow, d["balance"])
                 d["balance"] -= extra
@@ -814,7 +765,6 @@ def run_velocity_simulation(
 
         total_debt_bal = sum(d["balance"] for d in debts)
 
-        # Record individual loan balances for the Vortex method tracking chart
         loan_snapshot = {f"Loan_{d['name']}": round(d["balance"], 2) for d in debts}
 
         log_entry = {
@@ -838,71 +788,28 @@ if st.button("🚀 Run Payoff Simulation", type="primary"):
     if "loans" not in st.session_state or not st.session_state.loans:
         st.warning("Please add at least one debt or loan item.")
     else:
-        strategies_to_test = [
-            "Highest Interest First (Avalanche)",
-            "Lowest Balance First (Snowball)",
-            "Highest Payment First (Cash-Flow Boost)",
-        ]
+        results_df = run_velocity_simulation(
+            st.session_state.loans,
+            total_monthly_income,
+            total_monthly_expenses,
+            loc_limit,
+            loc_interest_rate,
+            loc_current_balance,
+            max_chunk_ratio,
+            safety_buffer,
+        )
 
-        all_results = {}
-        summary_data = []
-
-        for strat in strategies_to_test:
-            res_df = run_velocity_simulation(
-                st.session_state.loans,
-                total_monthly_income,
-                total_monthly_expenses,
-                loc_limit,
-                loc_interest_rate,
-                loc_current_balance,
-                max_chunk_ratio,
-                safety_buffer,
-                strat,
-            )
-            if res_df is not None and not res_df.empty:
-                all_results[strat] = res_df
-                summary_data.append({
-                    "Strategy": strat,
-                    "Months to Debt-Free": res_df["Month"].max(),
-                    "Total Interest Paid ($)": res_df["Total Interest Paid"].max(),
-                    "Final Monthly Cash Flow ($)": res_df["Monthly Cash Flow"].iloc[-1],
-                })
-
-        summary_df = pd.DataFrame(summary_data)
-
-        if not summary_df.empty:
-            best_row = summary_df.loc[summary_df["Total Interest Paid ($)"].idxmin()]
-            best_strategy = best_row["Strategy"]
-
-            st.success(
-                f"🏆 **Optimal Strategy Auto-Selected:** {best_strategy} "
-                f"(Total Interest: ${best_row['Total Interest Paid ($)']:,.2f} | "
-                f"Timeline: {best_row['Months to Debt-Free']} Months)"
-            )
-
-            st.dataframe(
-                summary_df.style.format({
-                    "Total Interest Paid ($)": "${:,.2f}",
-                    "Final Monthly Cash Flow ($)": "${:,.2f}",
-                }),
-                use_container_width=True,
-            )
-
-            active_strat = (
-                best_strategy
-                if strategy_mode == "Auto-Select Best Strategy (Compare All)"
-                else strategy_mode
-            )
-            results_df = all_results.get(
-                active_strat, list(all_results.values())[0]
-            )
-
-            # Save simulation results into session state for secondary chart button access
+        if results_df is not None and not results_df.empty:
             st.session_state.simulation_results = results_df
-            st.session_state.active_strategy_name = active_strat
 
             total_months = results_df["Month"].max()
             total_interest = results_df["Total Interest Paid"].max()
+
+            st.success(
+                f"⚡ **Velocity Banking Simulation Complete:** "
+                f"Debt-Free in {total_months} Months ({round(total_months/12, 1)} Years) | "
+                f"Total Interest Paid: ${total_interest:,.2f}"
+            )
 
             m1, m2, m3 = st.columns(3)
             m1.metric(
@@ -943,7 +850,7 @@ if st.button("🚀 Run Payoff Simulation", type="primary"):
             )
 
             fig.update_layout(
-                title=f"Debt Paydown & LOC Chunking Trajectory ({active_strat})",
+                title="Debt Paydown & LOC Chunking Trajectory (Highest Interest First)",
                 xaxis_title="Months",
                 yaxis_title="Balance ($)",
                 hovermode="x unified",
@@ -967,11 +874,9 @@ if "simulation_results" in st.session_state and st.session_state.simulation_resu
 
     if st.button("📊 Generate Vortex Individual Loan Comparison Chart"):
         res_df = st.session_state.simulation_results
-        strat_name = st.session_state.get("active_strategy_name", "Selected Strategy")
 
         fig_vortex = go.Figure()
 
-        # Plot individual loan curves stored during simulation
         for col in res_df.columns:
             if col.startswith("Loan_"):
                 loan_label = col.replace("Loan_", "")
@@ -985,7 +890,6 @@ if "simulation_results" in st.session_state and st.session_state.simulation_resu
                     )
                 )
 
-        # Plot Line of Credit curve
         if "LOC Balance" in res_df.columns:
             fig_vortex.add_trace(
                 go.Scatter(
@@ -998,7 +902,7 @@ if "simulation_results" in st.session_state and st.session_state.simulation_resu
             )
 
         fig_vortex.update_layout(
-            title=f"Vortex Rapid Paydown Breakdown by Loan ({strat_name})",
+            title="Vortex Rapid Paydown Breakdown by Loan (Highest Interest First)",
             xaxis_title="Months",
             yaxis_title="Principal Balance ($)",
             hovermode="x unified",

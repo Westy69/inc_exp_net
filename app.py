@@ -21,8 +21,42 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("💰 Vortex Coach Income & Expense Analyzer")
+# Floating YouTube Video in Top-Right Corner
 st.markdown(
+    """
+    <style>
+    .floating-video-container {
+        position: fixed;
+        top: 60px;
+        right: 25px;
+        width: 320px;
+        height: 180px;
+        z-index: 999999;
+        background-color: #000;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    }
+    .floating-video-container iframe {
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+    </style>
+    <div class="floating-video-container">
+        <iframe 
+            src="https://www.youtube.com/embed/lWdzMxifUIg" 
+            title="YouTube video player" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen>
+        </iframe>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.title("💰 Vortex Coach Income & Expense Analyzer")
+st.write(
     "Dynamically manage income streams, categorized expenses, and debt/loan "
     "amortizations with auto-calculated payments and velocity banking simulations."
 )
